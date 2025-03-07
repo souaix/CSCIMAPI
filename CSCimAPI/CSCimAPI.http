@@ -1,0 +1,6 @@
+@CimAPI_HostAddress = http://localhost:5185
+
+GET {{CimAPI_HostAddress}}/GETMAPQTY/
+Accept: application/json
+
+###
