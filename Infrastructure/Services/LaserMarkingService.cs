@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.SignalR.Protocol;
 using System.Data;
 using Core.Utilities;
 using Org.BouncyCastle.Asn1.Ocsp;
-
+//test
 namespace Infrastructure.Services
 {
     public class LaserMarkingService : ILaserMarkingService
