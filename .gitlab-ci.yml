@@ -1,0 +1,33 @@
+stages:
+  - build
+  - deploy
+
+variables:
+  DOTNET_ROOT: "C:\\Program Files\\dotnet"
+  DEPLOY_BASE_PATH: "D:\\CIM\\ARGO"
+
+build_job:
+  stage: build
+  tags:
+    - CS-CIM
+  script:
+    - echo "開始 Build..."
+    - dotnet --version
+    - dotnet restore
+    - dotnet build CSCIMAPI/CSCimAPI.csproj --configuration Release
+    - dotnet publish CSCIMAPI/CSCimAPI.csproj -c Release -o publish
+  artifacts:
+    paths:
+      - publish/
+    expire_in: 1 hour
+
+deploy_job:
+  stage: deploy
+  tags:
+    - CS-CIM
+  only:
+    - main
+    - develop
+  script:
+    - echo "執行部署腳本..."
+    - powershell ./deploy.ps1
