@@ -91,6 +91,7 @@ builder.Services.Scan(scan => scan
 	.WithScopedLifetime()
 );
 
+builder.Services.AddHttpClient();
 
 var app = builder.Build();
 
