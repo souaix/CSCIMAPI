@@ -1,7 +1,9 @@
 ﻿using Core.Entities.DboEmap;
 using Core.Entities.LaserMarking;
 using Core.Entities.LeakageCheck;
+using Core.Entities.MailSender;
 using Core.Entities.Public;
+using Core.Entities.TeamsAlarm;
 
 namespace Core.Interfaces
 {
@@ -12,6 +14,9 @@ namespace Core.Interfaces
         Task<ApiReturn<string>> GenerateTileIdsAsync(LaserMarkingRequest request);
 		//Task<ApiReturn<string>> LeakageCheckAsync(LeakageCheck request);
 		Task<ApiReturn<List<LeakageAnomalyDto>>> LeakageCheckAsync(LeakageCheckRequest request);
+		Task<ApiReturn<bool>> SendTeamsAlarmAsync(TeamsAlarmRequest request);
+		Task<ApiReturn<bool>> SendTeamsAlarmByGroupAsync(TeamsAlarmByGroupRequest request);
+		Task<ApiReturn<bool>> SendEmailAsync(MailSenderRequest request);
 
 	}
 }

@@ -11,6 +11,8 @@ using Infrastructure.Services;
 using Core.Entities.LaserMarking;
 using MySqlX.XDevAPI.Common;
 using Core.Entities.LeakageCheck;
+using Core.Entities.MailSender;
+using Core.Entities.TeamsAlarm;
 
 namespace CimAPI.Controllers
 {
@@ -154,5 +156,91 @@ namespace CimAPI.Controllers
 			return result.Result == "Ok" ? Ok(result) : BadRequest(result);
 		}
 
+		/// <summary>
+		/// 呼叫 Teams Alarm
+		/// </summary>
+		/// <remarks>
+		/// <para>
+		/// { 
+		///  "uri":"uri",
+		///  "message":"test"
+		/// }
+		/// </para>
+		/// <para>
+		/// 診療室 : 
+		/// https://prod-36.southeastasia.logic.azure.com:443/workflows/45e10a07a3d6442ab5b609dcdd0dcca2/triggers/manual/paths/invoke?api-version=2016-06-01&amp;sp=%2Ftriggers%2Fmanual%2Frun&amp;sv=1.0&amp;sig=7DfCU2gMui_RyEXFnpeaiGImC6EBN6-_SocDsj14pGU		
+		/// </para>
+		/// <para>
+		/// 
+		/// </para>
+		/// </remarks>	
+		[HttpPost("TeamsAlarm")]
+		public async Task<IActionResult> TeamsAlarm([FromBody] TeamsAlarmRequest request)
+		{
+			//_logger.LogInformation("收到 Teams Alarm 請求: {Message}", request.message);
+
+			var result = await _facade.SendTeamsAlarmAsync(request);
+
+			return result.Result == "Ok" ? Ok(result) : BadRequest(result);
+		}
+
+		/// <summary>
+		/// 呼叫 Teams Alarm by Group
+		/// </summary>
+		/// <remarks>
+		/// <para>
+		/// { 
+		/// "environment": "Imesprod",
+		///  "notifygroup": "發信群組",
+		///  "message":"test"
+		/// }
+		/// </para>
+		/// 
+		/// </remarks>	
+		[HttpPost("TeamsAlarmByGroup")]
+		public async Task<IActionResult> TeamsAlarmByGroup([FromBody] TeamsAlarmByGroupRequest request)
+		{
+			//_logger.LogInformation("收到 Teams Alarm 請求: {Message}", request.message);
+
+			var result = await _facade.SendTeamsAlarmByGroupAsync(request);
+
+			return result.Result == "Ok" ? Ok(result) : BadRequest(result);
+		}
+
+		/// <summary>
+		/// 使用LT Mail Server發送信件
+		/// </summary>
+		/// <remarks>
+		/// <para>
+		/// Sample request:
+		///{
+		///  "notifygroup": "發信群組",
+		///  "title": "標題",
+		/// "context": "內容", --語法與HTML相同；若要顯示圖片則用 &lt;img src='cid:image1'&gt;
+		///  "attachments": [
+		///	"檔案路徑"
+		///  ],
+		///  "inlineimages": {
+		///    "additionalProp1": "圖片的64編碼",
+		///    "additionalProp2": "圖片的64編碼",
+		///    "additionalProp3": "圖片的64編碼"
+		///  }
+		///}
+		///</para>
+		/// </remarks>
+		[HttpPost("MailSender")]
+		public async Task<IActionResult> MailSender([FromBody] MailSenderRequest request)
+		{
+			try
+			{
+				var result = await _facade.SendEmailAsync(request);
+				return result.Result == "Ok" ? Ok(result) : BadRequest(result);
+			}
+			catch (Exception ex)
+			{
+				_logger.LogError($"Mail sending failed: {ex.Message}");
+				return BadRequest(new { result = "Fail", message = ex.Message });
+			}
+		}
 	}
 }
