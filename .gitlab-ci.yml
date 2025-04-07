@@ -15,8 +15,8 @@ build_job:
     - echo "Start Build..."
     - dotnet --version
     - dotnet restore
-    - dotnet build ISCIMAPI/ISCimAPI.csproj --configuration Release
-    - dotnet publish ISCIMAPI/ISCimAPI.csproj -c Release -o publish
+    - dotnet build CSCIMAPI/CSCimAPI.csproj --configuration Release
+    - dotnet publish CSCIMAPI/CSCimAPI.csproj -c Release -o publish
   artifacts:
     paths:
       - publish/
