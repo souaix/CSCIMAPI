@@ -1,5 +1,6 @@
 stages:
   - build
+  - scan
   - deploy
 
 variables:
@@ -11,15 +12,35 @@ build_job:
   tags:
     - CS-CIM
   script:
-    - echo "開始 Build..."
+    - echo "Start Build..."
     - dotnet --version
     - dotnet restore
-    - dotnet build CSCIMAPI/CSCimAPI.csproj --configuration Release
-    - dotnet publish CSCIMAPI/CSCimAPI.csproj -c Release -o publish
+    - dotnet build ISCIMAPI/ISCimAPI.csproj --configuration Release
+    - dotnet publish ISCIMAPI/ISCimAPI.csproj -c Release -o publish
   artifacts:
     paths:
       - publish/
     expire_in: 1 hour
+
+scan_job:
+  stage: scan
+  tags:
+    - CS-CIM
+  script:
+    - echo "Start DevSkim Scan..."
+    - '& "D:\Tools\DevSkim\devskim.exe" analyze -I . -r rules.json -f sarif -O scan_result.sarif -g rules.json, Program.cs'    
+    - 'type scan_result.sarif'
+    - python sarif_to_html.py scan_result.sarif scan_report.html
+
+
+  artifacts:
+    paths:
+      - rules.json
+      - scan_result.sarif
+      - scan_report.html
+
+    expire_in: 1 hour
+
 
 deploy_job:
   stage: deploy

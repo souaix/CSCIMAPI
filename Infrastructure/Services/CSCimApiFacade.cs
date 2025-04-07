@@ -2,6 +2,7 @@
 using Core.Entities.DboEmap;
 using Core.Entities.Public;
 using Core.Entities.LaserMarking;
+using Core.Entities.LeakageCheck;
 
 namespace Infrastructure.Services
 {
@@ -9,13 +10,15 @@ namespace Infrastructure.Services
 	{
 		private readonly IInsertWipDataService _insertWipDataService;
 		private readonly ILaserMarkingService _laserMarkingService;
-
+		private readonly ILeakageCheckService _leakageCheckService;
 		public CSCimAPIFacade(
 			IInsertWipDataService insertWipDataService,
-			ILaserMarkingService laserMarkingService)
+			ILaserMarkingService laserMarkingService,
+			ILeakageCheckService leakageCheckService)
 		{
 			_insertWipDataService = insertWipDataService;
 			_laserMarkingService = laserMarkingService;
+			_leakageCheckService = leakageCheckService;
 		}
 
 		public Task<ApiReturn<int>> InsertWipDataAsync(string environment, string tableName, TblMesWipData_Record request)
@@ -32,6 +35,12 @@ namespace Infrastructure.Services
         {
             return _laserMarkingService.GenerateTileIdsAsync(request);
         }
+		
+		//public Task<ApiReturn<string>> LeakageCheckAsync(LeakageCheck request)
+		public Task<ApiReturn<List<LeakageAnomalyDto>>> LeakageCheckAsync(LeakageCheckRequest request)
+		{
+			return _leakageCheckService.LeakageCheckAsync(request);
+		}
 
-    }
+	}
 }

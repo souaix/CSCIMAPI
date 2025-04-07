@@ -10,6 +10,7 @@ using Infrastructure.Data.Repositories;
 using Infrastructure.Services;
 using Core.Entities.LaserMarking;
 using MySqlX.XDevAPI.Common;
+using Core.Entities.LeakageCheck;
 
 namespace CimAPI.Controllers
 {
@@ -22,7 +23,6 @@ namespace CimAPI.Controllers
 		private readonly IConfiguration _configuration;
 		private readonly IRepositoryFactory _RepositoryFactory;
 		private readonly ICSCimAPIFacade _facade;
-        private readonly ILaserMarkingService _laserMarkingService;
 
         public CSCimAPIController(ILogger<CSCimAPIController> logger, IRepositoryFactory RepositoryFactory, ICSCimAPIFacade facade)
 		{
@@ -116,6 +116,42 @@ namespace CimAPI.Controllers
 				// 返回 500 內部伺服器錯誤
 				return StatusCode(500, "內部伺服器錯誤，請稍後再試。"+ex.Message);
 			}
+		}
+
+		/// <summary>
+		/// 填洞測漏檢查 API
+		/// </summary>
+		/// <remarks>
+		/// <para>
+		/// {
+		///  "environment": "dboEmapProd",
+		///  
+		///  "lotno": "WB2025200242-A00072",
+		///  "opno": "BTS00001",
+		///  "deviceid": "LK-007",
+		///  "diff": 0.0001
+		/// }
+		/// </para>
+		/// </remarks>
+
+		[Route("[controller]/LeakageCheck")]
+		[HttpPost]
+		public async Task<IActionResult> LeakageCheck([FromBody] LeakageCheckRequest request)
+		{
+			if (request == null ||
+				string.IsNullOrWhiteSpace(request.Environment) ||
+				string.IsNullOrWhiteSpace(request.Lotno) ||
+				string.IsNullOrWhiteSpace(request.Opno) ||
+				string.IsNullOrWhiteSpace(request.Deviceid) ||
+				request.Diff <= 0 || double.IsNaN(request.Diff)
+)
+			{
+				return BadRequest(ApiReturn<string>.Failure("參數不完整"));
+			}
+
+			var result = await _facade.LeakageCheckAsync(request);
+
+			return result.Result == "Ok" ? Ok(result) : BadRequest(result);
 		}
 
 	}
