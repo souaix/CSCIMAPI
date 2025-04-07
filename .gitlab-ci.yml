@@ -30,7 +30,7 @@ scan_job:
     - echo "Start DevSkim Scan..."
     - '& "D:\Tools\DevSkim\devskim.exe" analyze -I . -r rules.json -f sarif -O scan_result.sarif -g rules.json, Program.cs'    
     - 'type scan_result.sarif'
-    - python sarif_to_html.py scan_result.sarif scan_report.html
+    - D:\Anaconda3\python.exe sarif_to_html.py scan_result.sarif scan_report.html
 
 
   artifacts:
