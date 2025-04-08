@@ -127,7 +127,7 @@ namespace CimAPI.Controllers
 		/// <para>
 		/// {
 		///  "environment": "dboEmapProd",
-		///  
+		///  "action":"select",
 		///  "lotno": "WB2025200242-A00072",
 		///  "opno": "BTS00001",
 		///  "deviceid": "LK-007",
@@ -144,17 +144,32 @@ namespace CimAPI.Controllers
 				string.IsNullOrWhiteSpace(request.Environment) ||
 				string.IsNullOrWhiteSpace(request.Lotno) ||
 				string.IsNullOrWhiteSpace(request.Opno) ||
-				string.IsNullOrWhiteSpace(request.Deviceid) ||
 				request.Diff <= 0 || double.IsNaN(request.Diff)
 )
 			{
 				return BadRequest(ApiReturn<string>.Failure("參數不完整"));
 			}
 
-			var result = await _facade.LeakageCheckAsync(request);
+			object result;
 
-			return result.Result == "Ok" ? Ok(result) : BadRequest(result);
+			if (request.Action == "Check")
+			{
+				result = await _facade.LeakageCheckAsync(request);
+			}
+			else if(request.Action == "Select")
+			{
+				result = await _facade.LeakageSelectAsync(request);
+			}
+			else
+			{
+				return BadRequest(ApiReturn<string>.Failure("Action參數不完整"));
+			}
+
+			return Ok(result);
+
+
 		}
+
 
 		/// <summary>
 		/// 呼叫 Teams Alarm
