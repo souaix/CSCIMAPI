@@ -17,7 +17,7 @@ namespace Infrastructure.Services // ✅ 加上 namespace
 
 		public async Task<string?> GetUrlByIdAsync(string urlId)
 		{
-			var repository = _repositoryFactory.CreateRepository("iotIMesprod");
+			var repository = _repositoryFactory.CreateRepository("CsCimEmapProd");
 			string query = "SELECT URL FROM ARGOCIMURLMAPPING WHERE URLID = :UrlId";
 			return await repository.QueryFirstOrDefaultAsync<string>(query, new { UrlId = urlId });
 		}

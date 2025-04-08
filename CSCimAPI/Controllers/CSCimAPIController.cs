@@ -229,6 +229,7 @@ namespace CimAPI.Controllers
 		/// <para>
 		/// Sample request:
 		///{
+		///  "environment": "csCimEmapProd",
 		///  "notifygroup": "發信群組",
 		///  "title": "標題",
 		/// "context": "內容", --語法與HTML相同；若要顯示圖片則用 &lt;img src='cid:image1'&gt;
