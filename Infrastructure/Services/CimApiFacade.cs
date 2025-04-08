@@ -8,14 +8,14 @@ using Core.Entities.TeamsAlarm;
 
 namespace Infrastructure.Services
 {
-	public class CSCimAPIFacade : ICSCimAPIFacade
+	public class CimApiFacade : ICimApiFacade
 	{
 		private readonly IInsertWipDataService _insertWipDataService;
 		private readonly ILaserMarkingService _laserMarkingService;
 		private readonly ILeakageCheckService _leakageCheckService;
 		private readonly ITeamsAlarmService _teamsAlarmService;
 		private readonly IMailSenderService _mailSenderService;
-		public CSCimAPIFacade(
+		public CimApiFacade(
 			IInsertWipDataService insertWipDataService,
 			ILaserMarkingService laserMarkingService,
 			ILeakageCheckService leakageCheckService,

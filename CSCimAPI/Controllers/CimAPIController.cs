@@ -18,15 +18,15 @@ namespace CimAPI.Controllers
 {
     [ApiController]
 
-	public class CSCimAPIController : ControllerBase
+	public class CimAPIController : ControllerBase
 	{
 
-		private readonly ILogger<CSCimAPIController> _logger;
+		private readonly ILogger<CimAPIController> _logger;
 		private readonly IConfiguration _configuration;
 		private readonly IRepositoryFactory _RepositoryFactory;
-		private readonly ICSCimAPIFacade _facade;
+		private readonly ICimApiFacade _facade;
 
-        public CSCimAPIController(ILogger<CSCimAPIController> logger, IRepositoryFactory RepositoryFactory, ICSCimAPIFacade facade)
+        public CimAPIController(ILogger<CimAPIController> logger, IRepositoryFactory RepositoryFactory, ICimApiFacade facade)
 		{
 			_logger = logger;
 			_RepositoryFactory = RepositoryFactory;

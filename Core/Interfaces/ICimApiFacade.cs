@@ -7,7 +7,7 @@ using Core.Entities.TeamsAlarm;
 
 namespace Core.Interfaces
 {
-	public interface ICSCimAPIFacade
+	public interface ICimApiFacade
 	{
 		Task<ApiReturn<int>> InsertWipDataAsync(string environment, string tableName, TblMesWipData_Record request);
 		Task<ApiReturn<IEnumerable<Config>>> GetConfigDataAsync(LaserMarkingRequest request);
