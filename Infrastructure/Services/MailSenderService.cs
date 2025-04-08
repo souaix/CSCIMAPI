@@ -24,7 +24,7 @@ namespace Infrastructure.Services
 			var title = request.TITLE;
 			var message = request.CONTEXT;
 
-			var repository = _repositoryFactory.CreateRepository("iotIMesprod");
+			var repository = _repositoryFactory.CreateRepository(request.Environment);
 
 			// 檢查 MAIL 通知開關
 			var mailSwitch = await repository.QueryFirstOrDefaultAsync<string>(

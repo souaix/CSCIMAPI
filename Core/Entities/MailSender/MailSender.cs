@@ -2,7 +2,7 @@
 {
 	public class MailSenderRequest
 	{
-
+		public string Environment { get; set; }
 		public string NOTIFYGROUP { get; set; }
 		public string TITLE { get; set; }
 		public string CONTEXT { get; set; }

@@ -23,6 +23,7 @@ builder.Logging.ClearProviders();
 builder.Logging.SetMinimumLevel(Microsoft.Extensions.Logging.LogLevel.Trace);
 builder.Host.UseNLog();
 builder.Services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
+
 builder.Services.AddControllers(options =>
 {
 	options.SuppressImplicitRequiredAttributeForNonNullableReferenceTypes = true;
@@ -53,6 +54,10 @@ builder.Services.AddControllers();
 
 var dboEmapProdConnectionString = "Data Source=(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=192.168.20.120)(PORT=1521))(CONNECT_DATA=(SERVICE_NAME=emap)));User Id=dbo;Password=Memory1900;";
 var dboEmapTestConnectionString = "Data Source=(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=10.30.40.133)(PORT=1521))(CONNECT_DATA=(SERVICE_NAME=emap)));User Id=dbo;Password=Memory1900;";
+
+var csCimEmapProdConnectionString = "Data Source=(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=192.168.20.120)(PORT=1521))(CONNECT_DATA=(SERVICE_NAME=emap)));User Id=cscim;Password=cscim2025adm!;";
+var csCimEmapTestConnectionString = "Data Source=(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=10.30.40.133)(PORT=1521))(CONNECT_DATA=(SERVICE_NAME=emap)));User Id=cscim;Password=cscim2025adm!;";
+
 var laserMarkingNormalProdConnectionString = "Server=172.24.5.248;Database=theil_servernew;User=root;Password=;";
 var laserMarkingNormalTestConnectionString = "Server=10.12.1.148;Database=theil_servernew;User=root;Password=;";
 
@@ -61,7 +66,7 @@ var cim28ConnectionString = "Server=10.21.100.28;Database=theil_servernew;User=t
 
 // 註冊 Factory
 builder.Services.AddSingleton<IRepositoryFactory>(
-	new RepositoryFactory(dboEmapProdConnectionString, dboEmapTestConnectionString, laserMarkingNormalProdConnectionString, laserMarkingNormalTestConnectionString, cim28ConnectionString));
+	new RepositoryFactory(dboEmapProdConnectionString, dboEmapTestConnectionString,csCimEmapProdConnectionString,csCimEmapTestConnectionString, laserMarkingNormalProdConnectionString, laserMarkingNormalTestConnectionString, cim28ConnectionString));
 
 
 // 註冊命名服務支持
@@ -73,6 +78,8 @@ builder.Services.AddSingleton<IEnumerable<KeyValuePair<string, object>>>(sp =>
 		new KeyValuePair<string, object>("Test", new OracleRepository(dboEmapTestConnectionString)),//舊版 暫時保留
 		new KeyValuePair<string, object>("dboEmapProd", new OracleRepository(dboEmapProdConnectionString)),
 		new KeyValuePair<string, object>("dboEmapTest", new OracleRepository(dboEmapTestConnectionString)),
+		new KeyValuePair<string, object>("CsCimEmapProd", new OracleRepository(csCimEmapProdConnectionString)),
+		new KeyValuePair<string, object>("CsCimEmapTest", new OracleRepository(csCimEmapTestConnectionString)),
 		new KeyValuePair<string, object>("laserMarkingNormalProd", new MySqlRepository(laserMarkingNormalProdConnectionString)),
 		new KeyValuePair<string, object>("laserMarkingNormalTest", new MySqlRepository(laserMarkingNormalTestConnectionString)),
 		new KeyValuePair<string, object>("cim28", new MySqlRepository(cim28ConnectionString))

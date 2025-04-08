@@ -7,16 +7,22 @@ public class RepositoryFactory : IRepositoryFactory
 {
 	private readonly string _dboEmapProdConnectionString;
 	private readonly string _dboEmapTestConnectionString;
+	private readonly string _csCimEmapProdConnectionString;
+	private readonly string _csCimEmapTestConnectionString;
 	private readonly string _laserMarkingNormalProdConnectionString;
 	private readonly string _laserMarkingNormalTestConnectionString;
 	private readonly string _cim28ConnectionString;
 
+
 	public RepositoryFactory(
 		string dboEmapProdConnectionString,
 		string dboEmapTestConnectionString,
+		string csCimEmapProdConnectionString,
+		string csCimEmapTestConnectionString,
 		string laserMarkingNormalProdConnectionString,
 		string laserMarkingNormalTestConnectionString,
 		string cim28ConnectionString
+
 		)
 	{
 		_dboEmapProdConnectionString = dboEmapProdConnectionString;
@@ -24,6 +30,8 @@ public class RepositoryFactory : IRepositoryFactory
 		_laserMarkingNormalProdConnectionString = laserMarkingNormalProdConnectionString;
 		_laserMarkingNormalTestConnectionString = laserMarkingNormalTestConnectionString;
 		_cim28ConnectionString = cim28ConnectionString;
+		_csCimEmapProdConnectionString = csCimEmapProdConnectionString;
+		_csCimEmapTestConnectionString = csCimEmapTestConnectionString;
 	}
 
 	public IRepository CreateRepository(string environment)
@@ -32,6 +40,8 @@ public class RepositoryFactory : IRepositoryFactory
 		{
 			"dboEmapProd" => new OracleRepository(_dboEmapProdConnectionString),
 			"dboEmapTest" => new OracleRepository(_dboEmapTestConnectionString),
+			"csCimEmapProd" => new OracleRepository(_csCimEmapProdConnectionString),
+			"csCimEmapTest" => new OracleRepository(_csCimEmapTestConnectionString),
 			"Prod" => new OracleRepository(_dboEmapProdConnectionString), //舊版 暫時保留
 			"Test" => new OracleRepository(_dboEmapTestConnectionString), //舊版 暫時保留
 			"laserMarkingProd" => new MySqlRepository(_laserMarkingNormalProdConnectionString),
