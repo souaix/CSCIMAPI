@@ -6,7 +6,7 @@
 		public string Action { get; set; }
 		public string Opno { get; set; }
 		public string Lotno { get; set; }
-		public string Deviceid { get; set; }
+		public string Deviceid { get; set; } 
 		public double Diff { get; set; }
 	}
 
@@ -22,6 +22,13 @@
 		//public string NG_V008 { get; set; }
 		//public string OK_V008 { get; set; }
 		//public DateTime NG_RECORDDATE { get; set; }
-		//public DateTime OK_RECORDDATE { get; set; }
+		//public DateTime OK_RECORDDATE { get; set; }	
+	}
+	public class LeakageRawDataDto
+	{
+		public string TILEID { get; set; }
+		public string V007 { get; set; }
+		public string V008 { get; set; }
+		public DateTime RECORDDATE { get; set; }
 	}
 }

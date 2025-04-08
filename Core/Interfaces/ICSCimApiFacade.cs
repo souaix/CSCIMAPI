@@ -11,9 +11,9 @@ namespace Core.Interfaces
 	{
 		Task<ApiReturn<int>> InsertWipDataAsync(string environment, string tableName, TblMesWipData_Record request);
 		Task<ApiReturn<IEnumerable<Config>>> GetConfigDataAsync(LaserMarkingRequest request);
-        Task<ApiReturn<string>> GenerateTileIdsAsync(LaserMarkingRequest request);
-		//Task<ApiReturn<string>> LeakageCheckAsync(LeakageCheck request);
+        Task<ApiReturn<string>> GenerateTileIdsAsync(LaserMarkingRequest request);		
 		Task<ApiReturn<List<LeakageAnomalyDto>>> LeakageCheckAsync(LeakageCheckRequest request);
+		Task<ApiReturn<List<LeakageRawDataDto>>> LeakageSelectAsync(LeakageCheckRequest request);
 		Task<ApiReturn<bool>> SendTeamsAlarmAsync(TeamsAlarmRequest request);
 		Task<ApiReturn<bool>> SendTeamsAlarmByGroupAsync(TeamsAlarmByGroupRequest request);
 		Task<ApiReturn<bool>> SendEmailAsync(MailSenderRequest request);

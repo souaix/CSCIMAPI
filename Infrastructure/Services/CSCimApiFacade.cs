@@ -44,10 +44,14 @@ namespace Infrastructure.Services
             return _laserMarkingService.GenerateTileIdsAsync(request);
         }
 		
-		//public Task<ApiReturn<string>> LeakageCheckAsync(LeakageCheck request)
 		public Task<ApiReturn<List<LeakageAnomalyDto>>> LeakageCheckAsync(LeakageCheckRequest request)
 		{
 			return _leakageCheckService.LeakageCheckAsync(request);
+		}
+
+		public Task<ApiReturn<List<LeakageRawDataDto>>> LeakageSelectAsync(LeakageCheckRequest request)
+		{
+			return _leakageCheckService.LeakageSelectAsync(request);
 		}
 
 		public async Task<ApiReturn<bool>> SendTeamsAlarmAsync(TeamsAlarmRequest request)

@@ -8,5 +8,6 @@ namespace Core.Interfaces
 	{
 		//Task<ApiReturn<string>> LeakageCheckAsync(LeakageCheck request);
 		Task<ApiReturn<List<LeakageAnomalyDto>>> LeakageCheckAsync(LeakageCheckRequest request);
+		Task<ApiReturn<List<LeakageRawDataDto>>> LeakageSelectAsync(LeakageCheckRequest request);
 	}
 }
