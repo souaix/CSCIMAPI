@@ -189,7 +189,8 @@ namespace CimAPI.Controllers
 		/// 
 		/// </para>
 		/// </remarks>	
-		[HttpPost("TeamsAlarm")]
+		[Route("[controller]/TeamsAlarm")]
+		[HttpPost]
 		public async Task<IActionResult> TeamsAlarm([FromBody] TeamsAlarmRequest request)
 		{
 			//_logger.LogInformation("收到 Teams Alarm 請求: {Message}", request.message);
@@ -211,8 +212,9 @@ namespace CimAPI.Controllers
 		/// }
 		/// </para>
 		/// 
-		/// </remarks>	
-		[HttpPost("TeamsAlarmByGroup")]
+		/// </remarks>			
+		[Route("[controller]/TeamsAlarmByGroup")]
+		[HttpPost]
 		public async Task<IActionResult> TeamsAlarmByGroup([FromBody] TeamsAlarmByGroupRequest request)
 		{
 			//_logger.LogInformation("收到 Teams Alarm 請求: {Message}", request.message);
@@ -244,7 +246,8 @@ namespace CimAPI.Controllers
 		///}
 		///</para>
 		/// </remarks>
-		[HttpPost("MailSender")]
+		[Route("[controller]/MailSender")]
+		[HttpPost]
 		public async Task<IActionResult> MailSender([FromBody] MailSenderRequest request)
 		{
 			try
