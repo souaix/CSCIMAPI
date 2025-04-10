@@ -8,6 +8,7 @@ using Microsoft.Extensions.Logging;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using Infrastructure.Utilities;
 
 namespace Infrastructure.Services
 {
@@ -29,6 +30,8 @@ namespace Infrastructure.Services
 			_logger.LogInformation($"[LeakageCheck] Request - lotno: {request.Lotno}, opno: {request.Opno}, deviceid: {request.Deviceid}, diff: {request.Diff}");
 
 			var repository = _repositoryFactory.CreateRepository(request.Environment);
+			var process = await DeviceProcessHelper.GetProcessByDeviceIdAsync(repository, request.Deviceid);
+			string tableName = $"TBLMESWIPDATA_{process}";
 
 			var deviceList = request.Deviceid
 				.Split(',', StringSplitOptions.RemoveEmptyEntries)
@@ -40,10 +43,10 @@ namespace Infrastructure.Services
 			//-- 2.每個 TILEID 抓最大值的 NG 與最小值的 OK（根據 V008）
 			//--3.若同時存在，計算 V008 差值並比較是否大於指定門檻
 
-			string sql = @"
+			string sql = $@"
                 WITH XX AS (
                     SELECT TILEID, RECORDDATE, V007, V008
-                    FROM TBLMESWIPDATA_BACKEND_001
+                    FROM {tableName}
                     WHERE LOTNO = :lotno
                       AND STEP = :opno
                       AND DEVICEID IN :deviceids

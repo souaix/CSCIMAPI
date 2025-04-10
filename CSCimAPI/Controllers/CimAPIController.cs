@@ -152,11 +152,11 @@ namespace CimAPI.Controllers
 
 			object result;
 
-			if (request.Action == "Check")
+			if (request.Action == "CHECK")
 			{
 				result = await _facade.LeakageCheckAsync(request);
 			}
-			else if(request.Action == "Select")
+			else if(request.Action == "SELECT")
 			{
 				result = await _facade.LeakageSelectAsync(request);
 			}
