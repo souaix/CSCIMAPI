@@ -6,7 +6,8 @@
 		public string Action { get; set; }
 		public string Opno { get; set; }
 		public string Lotno { get; set; }
-		public string Deviceid { get; set; } 
+		public string Deviceid { get; set; }
+		public string Deviceids { get; set; }
 		public double Diff { get; set; }
 	}
 

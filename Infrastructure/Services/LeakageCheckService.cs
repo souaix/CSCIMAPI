@@ -33,7 +33,7 @@ namespace Infrastructure.Services
 			var process = await DeviceProcessHelper.GetProcessByDeviceIdAsync(repository, request.Deviceid);
 			string tableName = $"TBLMESWIPDATA_{process}";
 
-			var deviceList = request.Deviceid
+			var deviceList = request.Deviceids
 				.Split(',', StringSplitOptions.RemoveEmptyEntries)
 				.Select(x => x.Trim())
 				.ToArray();
@@ -106,17 +106,18 @@ namespace Infrastructure.Services
 		public async Task<ApiReturn<List<LeakageRawDataDto>>> LeakageSelectAsync(LeakageCheckRequest request)
 		{
 			_logger.LogInformation($"[LeakageSelect] Request - lotno: {request.Lotno}, opno: {request.Opno}, deviceid: {request.Deviceid}");
-
 			var repository = _repositoryFactory.CreateRepository(request.Environment);
+			var process = await DeviceProcessHelper.GetProcessByDeviceIdAsync(repository, request.Deviceid);			
+			string tableName = $"TBLMESWIPDATA_{process}";
 
-			var deviceList = request.Deviceid
+			var deviceList = request.Deviceids
 				.Split(',', StringSplitOptions.RemoveEmptyEntries)
 				.Select(x => x.Trim())
 				.ToArray();
 
-			string sql = @"
+			string sql = $@"
                 SELECT TILEID, V007, V008, RECORDDATE
-                FROM TBLMESWIPDATA_BACKEND_001
+                FROM {tableName}
                 WHERE LOTNO = :lotno
                   AND STEP = :opno
                   AND DEVICEID IN :deviceids
