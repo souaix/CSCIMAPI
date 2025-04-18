@@ -5,6 +5,7 @@ using Core.Entities.LaserMarking;
 using Core.Entities.LeakageCheck;
 using Core.Entities.MailSender;
 using Core.Entities.TeamsAlarm;
+using Core.Entities.LotTileCheck;
 
 namespace Infrastructure.Services
 {
@@ -15,18 +16,22 @@ namespace Infrastructure.Services
 		private readonly ILeakageCheckService _leakageCheckService;
 		private readonly ITeamsAlarmService _teamsAlarmService;
 		private readonly IMailSenderService _mailSenderService;
+		private readonly ILotTileCheckService _lotTileCheckService;
+
 		public CimApiFacade(
 			IInsertWipDataService insertWipDataService,
 			ILaserMarkingService laserMarkingService,
 			ILeakageCheckService leakageCheckService,
 			ITeamsAlarmService teamsAlarmService,
-			IMailSenderService mailSenderService)
+			IMailSenderService mailSenderService,
+			ILotTileCheckService lotTileCheckService)
 		{
 			_insertWipDataService = insertWipDataService;
 			_laserMarkingService = laserMarkingService;
 			_leakageCheckService = leakageCheckService;
 			_teamsAlarmService = teamsAlarmService;
 			_mailSenderService = mailSenderService;
+			_lotTileCheckService = lotTileCheckService;
 		}
 
 		public Task<ApiReturn<int>> InsertWipDataAsync(string environment, string tableName, TblMesWipData_Record request)
@@ -68,5 +73,11 @@ namespace Infrastructure.Services
 		{
 			return await _mailSenderService.SendEmailAsync(request);
 		}
+
+		public async Task<ApiReturn<List<TileCheckResultDto>>> LotTileCheckAsync(LotTileCheckRequest request)
+		{
+			return await _lotTileCheckService.CheckLotTileAsync(request);
+		}
+
 	}
 }

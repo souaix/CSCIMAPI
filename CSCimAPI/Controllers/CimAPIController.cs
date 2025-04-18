@@ -13,11 +13,12 @@ using MySqlX.XDevAPI.Common;
 using Core.Entities.LeakageCheck;
 using Core.Entities.MailSender;
 using Core.Entities.TeamsAlarm;
+using Core.Entities.LotTileCheck;
 
 namespace CimAPI.Controllers
 {
     [ApiController]
-
+	//[Route("[controller]")]
 	public class CimAPIController : ControllerBase
 	{
 
@@ -261,5 +262,44 @@ namespace CimAPI.Controllers
 				return BadRequest(new { result = "Fail", message = ex.Message });
 			}
 		}
+
+		/// <summary>
+		/// 黑白名單
+		/// </summary>
+		/// <remarks>
+		/// <para>
+		/// Sample request:
+		///{
+		///  "environment": "dboEmapProd",
+		///  "action": "CHECK",
+		///  "lotno": "WB2025200242-A00069",
+		///  "step" : "BTS000P1",
+		///  "deviceid":"deviceid"
+		///}
+		///</para>
+		/// </remarks>
+		[Route("[controller]LotTileCheck")]
+		[HttpPost]
+		public async Task<IActionResult> LotTileCheck([FromBody] LotTileCheckRequest request)
+		{
+			if (request == null || string.IsNullOrWhiteSpace(request.Environment) || string.IsNullOrWhiteSpace(request.LotNo))
+			{
+				return BadRequest("請求或參數不能為空。");
+			}
+			if (string.IsNullOrWhiteSpace(request.Action))
+			{
+				return BadRequest("請求或動作(Action)不能為空。");
+			}
+			if (request.Action == "CHECK")
+			{
+				var result = await _facade.LotTileCheckAsync(request);
+				return Ok(result);
+			}
+			else
+			{
+				return BadRequest("請求或動作(Action)不能為空。");
+			}
+		}
+
 	}
 }
