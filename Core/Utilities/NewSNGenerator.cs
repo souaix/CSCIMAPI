@@ -6,9 +6,10 @@ namespace Core.Utilities
     {
         private readonly string _availableChars; // 可用的編碼字元 (如 ABCDEFGHIJKLMNOPQRSTUVWXYZ)
 
-        public NewSNGenerator(string availableChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
+        public NewSNGenerator(string availableChars)
         {
-            _availableChars = availableChars;
+            //_availableChars = availableChars;
+            _availableChars = string.IsNullOrEmpty(availableChars) ? "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789" : availableChars;
         }
 
         /// <summary>
