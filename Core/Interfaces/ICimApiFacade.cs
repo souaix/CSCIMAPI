@@ -1,8 +1,10 @@
 ﻿using Core.Entities.DboEmap;
 using Core.Entities.LaserMarking;
 using Core.Entities.LeakageCheck;
+using Core.Entities.LotTileCheck;
 using Core.Entities.MailSender;
 using Core.Entities.Public;
+using Core.Entities.Recipe2DCodeGenerator;
 using Core.Entities.TeamsAlarm;
 
 namespace Core.Interfaces
@@ -17,6 +19,9 @@ namespace Core.Interfaces
 		Task<ApiReturn<bool>> SendTeamsAlarmAsync(TeamsAlarmRequest request);
 		Task<ApiReturn<bool>> SendTeamsAlarmByGroupAsync(TeamsAlarmByGroupRequest request);
 		Task<ApiReturn<bool>> SendEmailAsync(MailSenderRequest request);
+		Task<ApiReturn<List<TileCheckResultDto>>> LotTileCheckAsync(LotTileCheckRequest request);
+		Task<ApiReturn<int>> Save2DCodeAsync(Recipe2DCodeRequest request);
+
 
 	}
 }

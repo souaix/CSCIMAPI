@@ -8,6 +8,7 @@ using Core.Interfaces;
 using Core.Entities.Public;
 using Microsoft.Extensions.Logging;
 using Core.Entities.TeamsAlarm;
+using Infrastructure.Utilities;
 
 namespace Infrastructure.Services
 {
@@ -67,7 +68,7 @@ namespace Infrastructure.Services
 		{
 			var notifyGroup = request.NotifyGroup;
 			var message = request.Message;
-			var repository = _repositoryFactory.CreateRepository(request.Environment);
+			var (_, repository) = RepositoryHelper.CreateRepositories(request.Environment, _repositoryFactory);//cim			
 
 			var config = await repository.QueryFirstOrDefaultAsync<(string TEAMS, string TEAMSAPIURI)>(
 				"SELECT TEAMS, TEAMSAPIURI FROM ARGOCIMNOTIFYCONFIG WHERE NOTIFYGROUP = :notifyGroup",

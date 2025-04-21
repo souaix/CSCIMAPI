@@ -9,7 +9,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Core", "Core\Core.csproj", 
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Infrastructure", "Infrastructure\Infrastructure.csproj", "{5F99DF29-B343-459D-BB40-813569443C74}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MaxTest", "MaxTest\MaxTest.csproj", "{F553FBA7-AC24-46D8-80EA-D08F809F358C}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UnitTest", "MaxTest\UnitTest.csproj", "{F553FBA7-AC24-46D8-80EA-D08F809F358C}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

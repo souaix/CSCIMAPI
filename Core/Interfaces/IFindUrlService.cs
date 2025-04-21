@@ -3,7 +3,7 @@
 	public interface IFindUrlService
 	{
 		//找尋Url
-		Task<string?> GetUrlByIdAsync(string urlId);
+		Task<string?> GetUrlByIdAsync(string urlId,string environment);
 
 	}
 }
