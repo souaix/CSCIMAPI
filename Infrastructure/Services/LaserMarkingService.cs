@@ -89,9 +89,18 @@ namespace Infrastructure.Services
         public async Task<ApiReturn<string>> GenerateTileIdsAsync(LaserMarkingRequest request)
         {
             var repository = _repositoryFactory.CreateRepository(request.Environment);
+            IRepository oracleRepo;
+            if (request.Environment == "cim28")
+            {
+                oracleRepo = _repositoryFactory.CreateRepository("dboEmapTest");
+            }
+            else
+            {
+                oracleRepo = _repositoryFactory.CreateRepository("dboEmapProd");
+            }
 
-			// 2. 取得 Config（依據 request.Product）
-			var config = await repository.QueryFirstOrDefaultAsync<Config>(
+            // 2. 取得 Config（依據 request.Product）
+            var config = await repository.QueryFirstOrDefaultAsync<Config>(
                 "SELECT * FROM Config WHERE Config_Name = @ConfigName",
                 new { ConfigName = request.Product }
             );
@@ -118,26 +127,58 @@ namespace Infrastructure.Services
 			var (topTileIds, topLotCreatorList, topLastSN) = await GenerateTileIds(request, config, customerConfig, isBackSide: false, repository);
 			// 4.2.6 呼叫 SaveLotCreatorData，儲存正面資料（LotNo 不加 B）
 			await SaveLotCreatorData(repository, request.LotNo, topLotCreatorList, request.StepCode);
+            //增加寫入 MAP 的 TBLWIPLOTMARKINGDATA
+            //await InsertWipLotMarkingDataToOracle(request.LotNo, Enumerable.Range(1, topTileIds.Count).ToList(), topTileIds, oracleRepo);
+            //var panelTileList = topTileIds
+            //    .Select((tile, index) => new { tile, index })
+            //    .GroupBy(x => x.index / 5)
+            //    .Select(g => g.Select(x => x.tile).ToList())
+            //    .ToList();
 
+            string lotTable = request.LotNo;
+            var panelRows = await repository.QueryAsync<dynamic>($"SELECT * FROM `{lotTable}`");
 
-			// 4.2.7.5 取得最後一筆正面 TileText 作為 TileIDEnd
-			string finalProductTileId = topLotCreatorList.LastOrDefault(l => !string.IsNullOrEmpty(l.TileText02))?.TileText02
+            var panelTileList = new List<List<string>>();
+
+            foreach (var row in panelRows)
+            {
+                var tiles = new List<string>();
+
+                if (row.TileText01 != null) tiles.Add((string)row.TileText01);
+                if (row.TileText02 != null) tiles.Add((string)row.TileText02);
+                if (row.TileText03 != null) tiles.Add((string)row.TileText03);
+                if (row.TileText04 != null) tiles.Add((string)row.TileText04);
+                if (row.TileText05 != null) tiles.Add((string)row.TileText05);
+
+                panelTileList.Add(tiles);
+            }
+
+            await InsertWipLotMarkingDataToOracle(request.LotNo, panelTileList, oracleRepo);
+
+            // 4.2.7.5 取得最後一筆正面 TileText 作為 TileIDEnd
+            string finalProductTileId = topLotCreatorList.LastOrDefault(l => !string.IsNullOrEmpty(l.TileText02))?.TileText02
                 ?? topLotCreatorList.LastOrDefault(l => !string.IsNullOrEmpty(l.TileText01))?.TileText01;
 
             Console.WriteLine($"Final TileID for Product Table: {finalProductTileId}");
+
+
 
 			// **存入 Product Table**
 			// 4.2.8 將正面編碼結果存入 Product 表（根據 stepCode 判斷 Table 命名）
 			if (stepCodeExistsInOpnoPrefix)
             {
                 // StepCode 存在於 opno_prefix，只插入 C+LotNo 和 D+LotNo
-                await SaveProductTable(repository, "C" + request.LotNo, request.Customer, $"{request.Product}-TOP-C", topTileIds, topLastSN, finalProductTileId);
-                await SaveProductTable(repository, "D" + request.LotNo, request.Customer, $"{request.Product}-TOP-D", topTileIds, topLastSN, finalProductTileId);
+                await SaveProductTable(repository, "C" + request.LotNo, request.Customer, $"{request.Product}-TOP-C", topTileIds, topLastSN, finalProductTileId, config);
+                await SaveProductTable(repository, "D" + request.LotNo, request.Customer, $"{request.Product}-TOP-D", topTileIds, topLastSN, finalProductTileId, config);
             }
             else
             {
                 // StepCode 不存在於 opno_prefix，插入 LotNo
-                await SaveProductTable(repository, request.LotNo, request.Customer, $"{request.Product}-TOP", topTileIds, topLastSN, finalProductTileId);
+                if (config.Side == 1)
+                { await SaveProductTable(repository, request.LotNo, request.Customer, $"{request.Product}", topTileIds, topLastSN, finalProductTileId, config); }
+                else 
+                { await SaveProductTable(repository, request.LotNo, request.Customer, $"{request.Product}-TOP", topTileIds, topLastSN, finalProductTileId, config); }
+                
             }
 
             // **存入 Product Table (正面)**
@@ -175,11 +216,11 @@ namespace Infrastructure.Services
 
 				// 5.3.1 呼叫 SaveLotCreatorData，儲存背面資料（LotNo 前面加上 B）
 				await SaveLotCreatorData(repository, "B" + request.LotNo, backLotCreatorList, request.StepCode);
+              
 
-
-				// **取得背面 TileIDEnd，應該存入 TileText02 的最後一筆**
-				// 5.3.2 取得背面最後一筆 TileText 作為 TileIDEnd
-				string finalBackTileId = backLotCreatorList.LastOrDefault(l => !string.IsNullOrEmpty(l.TileText02))?.TileText02
+                // **取得背面 TileIDEnd，應該存入 TileText02 的最後一筆**
+                // 5.3.2 取得背面最後一筆 TileText 作為 TileIDEnd
+                string finalBackTileId = backLotCreatorList.LastOrDefault(l => !string.IsNullOrEmpty(l.TileText02))?.TileText02
                     ?? backLotCreatorList.LastOrDefault(l => !string.IsNullOrEmpty(l.TileText01))?.TileText01;
 
 				// **存入背面 Product Table**
@@ -187,13 +228,13 @@ namespace Infrastructure.Services
 				if (stepCodeExistsInOpnoPrefix)
                 {
                     // StepCode 存在於 opno_prefix，插入 BC+LotNo 和 BD+LotNo
-                    await SaveProductTable(repository, "BC" + request.LotNo, request.Customer, $"{request.Product}-BACK-C", backTileIds, backLastSN, finalBackTileId);
-                    await SaveProductTable(repository, "BD" + request.LotNo, request.Customer, $"{request.Product}-BACK-D", backTileIds, backLastSN, finalBackTileId);
+                    await SaveProductTable(repository, "BC" + request.LotNo, request.Customer, $"{request.Product}-BACK-C", backTileIds, backLastSN, finalBackTileId,config);
+                    await SaveProductTable(repository, "BD" + request.LotNo, request.Customer, $"{request.Product}-BACK-D", backTileIds, backLastSN, finalBackTileId, config);
                 }
                 else
                 {
                     // StepCode 不存在於 opno_prefix，插入 B+LotNo
-                    await SaveProductTable(repository, "B" + request.LotNo, request.Customer, $"{request.Product}-BACK", backTileIds, backLastSN, finalBackTileId);
+                    await SaveProductTable(repository, "B" + request.LotNo, request.Customer, $"{request.Product}-BACK", backTileIds, backLastSN, finalBackTileId, config);
                 }
 
 
@@ -261,11 +302,13 @@ namespace Infrastructure.Services
                     { "DAY_CODE", config.Day_Code }
                 };
 
-            var snGenerator = new NewSNGenerator();
-			//string lastSN = customerConfig.SelectLastSn;
+            //var snGenerator = new NewSNGenerator();
+            var snGenerator = new NewSNGenerator(customerConfig.CharacterEncode);
 
-			// 1.2 取得 SN 長度；若查無 LastSN 則以 '0' * 長度填補
-			int snLength = customerConfig.SnLength ?? 5; // 預設值 5
+            //string lastSN = customerConfig.SelectLastSn;
+
+            // 1.2 取得 SN 長度；若查無 LastSN 則以 '0' * 長度填補
+            int snLength = customerConfig.SnLength ?? 5; // 預設值 5
             string lastSN = lastProduct?.LastSN ?? new string('0', snLength);
 
 			//string lastSN = lastProduct;
@@ -346,19 +389,19 @@ namespace Infrastructure.Services
                     TileText03 = tileTexts.ElementAtOrDefault(2),
                     TileText04 = tileTexts.ElementAtOrDefault(3),
                     TileText05 = tileTexts.ElementAtOrDefault(4),
-					//CellText01 = cellTexts.ElementAtOrDefault(0),
-					//CellText02 = cellTexts.ElementAtOrDefault(1),
-					//CellText03 = cellTexts.ElementAtOrDefault(2),
-					//CellText04 = cellTexts.ElementAtOrDefault(3),
-					//CellText05 = cellTexts.ElementAtOrDefault(4),
-					// 4.2.5.2 CELL 預設空值（❗實作上未用 cellTextFields）
-					CellText01 = "",
-                    CellText02 = "",
-                    CellText03 = "",
-                    CellText04 = "",
-                    CellText05 = "",
-					// 4.2.5.3 DotData 固定為空字串
-					DotData = "",
+                    CellText01 = cellTextFields.ElementAtOrDefault(0),
+                    CellText02 = cellTextFields.ElementAtOrDefault(1),
+                    CellText03 = cellTextFields.ElementAtOrDefault(2),
+                    CellText04 = cellTextFields.ElementAtOrDefault(3),
+                    CellText05 = cellTextFields.ElementAtOrDefault(4),
+                    // 4.2.5.2 CELL 預設空值（❗實作上未用 cellTextFields）
+                    //CellText01 = "",
+                    //               CellText02 = "",
+                    //               CellText03 = "",
+                    //               CellText04 = "",
+                    //               CellText05 = "",
+                    // 4.2.5.3 DotData 固定為空字串
+                    DotData = "",
                     Tile01Count = "0",
                     Tile02Count = "0",
                     Tile03Count = "0",
@@ -487,7 +530,7 @@ namespace Infrastructure.Services
                                              TileText01, TileText02, TileText03, TileText04, TileText05,
                                              CellText01, CellText02, CellText03, CellText04, CellText05,
                                              DotData, Tile01Count, Tile02Count, Tile03Count, Tile04Count, Tile05Count)
-                VALUES (@TileID, @MachineID, @MarkDate, @MarkTime, @ReworkDate, @ReworkTime,
+                VALUES (@TileID, NULL, NULL, NULL, NULL, NULL,
                         @TileText01, @TileText02, @TileText03, @TileText04, @TileText05,
                         @CellText01, @CellText02, @CellText03, @CellText04, @CellText05,
                         @DotData, @Tile01Count, @Tile02Count, @Tile03Count, @Tile04Count, @Tile05Count)", lotCreator);
@@ -538,13 +581,67 @@ namespace Infrastructure.Services
             //}
         }
 
+        private string GetTileIdEndFromPanelData(List<dynamic> panelRows, Config config)
+        {
+            var configTexts = new[]
+            {
+                config.Top_TileText01,
+                config.Top_TileText02,
+                config.Top_TileText03,
+                config.Top_TileText04,
+                config.Top_TileText05
+            };
 
-        private async Task SaveProductTable(IRepository repository, string lotNo,string customer, string productName, List<string> tileIds, string lastSN,string finalTileid)
+            // 只挑出包含 SN1 或 GSC1 的欄位 index（表示會遞增）
+            //var incrementIndexes = configTexts
+            //    .Select((value, index) => new { value, index })
+            //    .Where(x => x.value != null && (x.value.Contains("SN1") || x.value.Contains("GSC1")))
+            //    .Select(x => x.index)
+            //    .ToList();
+            
+            //挑出不含空白 SN GSC 之外的欄位設定
+            var incrementIndexes = configTexts
+                .Select((value, index) => new { value, index })
+                .Where(x =>
+                    !string.IsNullOrWhiteSpace(x.value) &&
+                    !x.value.Equals("SN", StringComparison.OrdinalIgnoreCase) &&
+                    !x.value.Equals("GSC", StringComparison.OrdinalIgnoreCase)
+                )
+                .Select(x => x.index)
+                .ToList();
+
+            // 反向找最後一筆有值的 TileID
+            foreach (var row in panelRows.AsEnumerable().Reverse())
+            {
+                foreach (var idx in incrementIndexes.OrderByDescending(i => i))
+                {
+                    string val = idx switch
+                    {
+                        0 => row.TileText01,
+                        1 => row.TileText02,
+                        2 => row.TileText03,
+                        3 => row.TileText04,
+                        4 => row.TileText05,
+                        _ => null
+                    };
+
+                    if (!string.IsNullOrEmpty(val))
+                        return val;
+                }
+            }
+
+            return null;
+        }
+
+        private async Task SaveProductTable(IRepository repository, string lotNo,string customer, string productName, List<string> tileIds, string lastSN,string finalTileid, Config config)
         {
 			// 4.2.7.5 確保最後一筆編碼字串存在（TileIDEnd 若為 null 則 fallback 為首筆）
-			string tileIDEnd = tileIds.LastOrDefault() ?? tileIds.First();
-			// 4.2.8 寫入 Product 資料表
-			await repository.ExecuteAsync(@"
+			//string tileIDEnd = tileIds.LastOrDefault() ?? tileIds.First();
+
+            var panelRows = await repository.QueryAsync<dynamic>($"SELECT * FROM `{lotNo}`");
+            string tileIdEnd = GetTileIdEndFromPanelData(panelRows.ToList(), config);
+            // 4.2.8 寫入 Product 資料表
+            await repository.ExecuteAsync(@"
             INSERT INTO Product (LotNO, Customer, ProductName, TileID, TileIDEnd, LastSN, Quantity, CreateDate, CreateTime)
             VALUES (@LotNO, @Customer, @ProductName, @TileID, @TileIDEnd, @LastSN, @Quantity, @CreateDate, @CreateTime)",
                 new
@@ -554,7 +651,8 @@ namespace Infrastructure.Services
 					// 4.2.7.4 ProductName（已於外層組合完成，包含 TOP/BACK 判斷）
 					ProductName = productName,
                     TileID = tileIds.First(),
-                    TileIDEnd = finalTileid,
+                    //TileIDEnd = finalTileid,
+                    TileIDEnd = tileIdEnd,
                     LastSN = lastSN,
 					// 4.2.7.7 總編碼筆數 → Quantity
 					Quantity = tileIds.Count,
@@ -562,5 +660,63 @@ namespace Infrastructure.Services
                     CreateTime = DateTime.Now.ToString("HH:mm:ss")
                 });
         }
+
+
+        private async Task InsertWipLotMarkingDataToOracle(string lotNo, List<List<string>> panelTileList, IRepository oracleRepo)
+        {
+            string timestamp = DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss");
+
+            for (int groupIndex = 0; groupIndex < panelTileList.Count; groupIndex++)
+            {
+                var panel = panelTileList[groupIndex];
+                int tileGroup = groupIndex + 1;
+
+                for (int itemIndex = 0; itemIndex < panel.Count; itemIndex++)
+                {
+                    string tileId = panel[itemIndex];
+                    if (!string.IsNullOrEmpty(tileId))
+                    {
+                        await oracleRepo.ExecuteAsync(@"
+                            INSERT INTO TBLWIPLOTMARKINGDATA 
+                            (LOTNO, TILEGROUP, TILEGROUP_ITEM, TILEID, RECORDDATE)
+                            VALUES (:LotNo, :TileGroup, :TileGroupItem, :TileID, TO_DATE(:RecordDate,'YYYY/MM/DD HH24:MI:SS'))
+                        ", new
+                        {
+                            LotNo = lotNo,
+                            TileGroup = tileGroup,
+                            TileGroupItem = itemIndex + 1,
+                            TileID = tileId,
+                            RecordDate = timestamp
+                        });
+                    }
+                }
+            }
+        }
+
+
+        //private async Task InsertWipLotMarkingDataToOracle(string lotNo, List<int> groupIndices, List<string> tileTexts, IRepository oracleRepo)
+        //{
+        //    string timestamp = DateTime.Now.ToString("yyyy/MM/dd HH:mm:ss");
+
+        //    for (int i = 0; i < tileTexts.Count; i++)
+        //    {
+        //        var tile = tileTexts[i];
+        //        if (!string.IsNullOrEmpty(tile))
+        //        {
+        //            await oracleRepo.ExecuteAsync(@"
+        //                INSERT INTO TBLWIPLOTMARKINGDATA 
+        //                (LOTNO, TILEGROUP, TILEGROUP_ITEM, TILEID, RECORDDATE)
+        //                VALUES (:LotNo, :TileGroup, :TileGroupItem, :TileID, TO_DATE(:RecordDate,'YYYY/MM/DD HH24:MI:SS'))
+        //            ", new
+        //            {
+        //                LotNo = lotNo,
+        //                TileGroup = groupIndices[i],
+        //                TileGroupItem = 1,
+        //                TileID = tile,
+        //                RecordDate = timestamp
+        //            });
+        //        }
+        //    }
+        //}
     }
 }
