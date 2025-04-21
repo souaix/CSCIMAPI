@@ -6,6 +6,7 @@ using Core.Entities.LeakageCheck;
 using Core.Entities.MailSender;
 using Core.Entities.TeamsAlarm;
 using Core.Entities.LotTileCheck;
+using Core.Entities.Recipe2DCodeGenerator;
 
 namespace Infrastructure.Services
 {
@@ -17,6 +18,7 @@ namespace Infrastructure.Services
 		private readonly ITeamsAlarmService _teamsAlarmService;
 		private readonly IMailSenderService _mailSenderService;
 		private readonly ILotTileCheckService _lotTileCheckService;
+		private readonly IRecipe2DCodeService _recipe2DCodeService;
 
 		public CimApiFacade(
 			IInsertWipDataService insertWipDataService,
@@ -24,7 +26,8 @@ namespace Infrastructure.Services
 			ILeakageCheckService leakageCheckService,
 			ITeamsAlarmService teamsAlarmService,
 			IMailSenderService mailSenderService,
-			ILotTileCheckService lotTileCheckService)
+			ILotTileCheckService lotTileCheckService,
+			IRecipe2DCodeService recipe2DCodeService)
 		{
 			_insertWipDataService = insertWipDataService;
 			_laserMarkingService = laserMarkingService;
@@ -32,6 +35,7 @@ namespace Infrastructure.Services
 			_teamsAlarmService = teamsAlarmService;
 			_mailSenderService = mailSenderService;
 			_lotTileCheckService = lotTileCheckService;
+			_recipe2DCodeService = recipe2DCodeService;
 		}
 
 		public Task<ApiReturn<int>> InsertWipDataAsync(string environment, string tableName, TblMesWipData_Record request)
@@ -77,6 +81,11 @@ namespace Infrastructure.Services
 		public async Task<ApiReturn<List<TileCheckResultDto>>> LotTileCheckAsync(LotTileCheckRequest request)
 		{
 			return await _lotTileCheckService.CheckLotTileAsync(request);
+		}
+
+		public Task<ApiReturn<int>> Save2DCodeAsync(Recipe2DCodeRequest request)
+		{
+			return _recipe2DCodeService.Save2DCodeAsync(request);
 		}
 
 	}

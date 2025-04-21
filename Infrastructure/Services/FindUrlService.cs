@@ -1,5 +1,9 @@
 ﻿using Core.Interfaces;
+using Infrastructure.Utilities;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Hosting;
+using Org.BouncyCastle.Asn1.Ocsp;
+using System;
 
 namespace Infrastructure.Services // ✅ 加上 namespace
 {
@@ -15,9 +19,9 @@ namespace Infrastructure.Services // ✅ 加上 namespace
 			_repositoryFactory = repositoryFactory;
 		}
 
-		public async Task<string?> GetUrlByIdAsync(string urlId)
+		public async Task<string?> GetUrlByIdAsync(string urlId, string environment)
 		{
-			var repository = _repositoryFactory.CreateRepository("CsCimEmapProd");
+			var (_, repository) = RepositoryHelper.CreateRepositories(environment, _repositoryFactory);//cim			
 			string query = "SELECT URL FROM ARGOCIMURLMAPPING WHERE URLID = :UrlId";
 			return await repository.QueryFirstOrDefaultAsync<string>(query, new { UrlId = urlId });
 		}

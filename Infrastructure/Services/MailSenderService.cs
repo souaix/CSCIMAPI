@@ -1,6 +1,7 @@
 ﻿using Core.Entities.MailSender;
 using Core.Entities.Public;
 using Core.Interfaces;
+using Infrastructure.Utilities;
 using System.Net.Mail;
 using System.Net.Mime;
 using System.Text;
@@ -24,7 +25,7 @@ namespace Infrastructure.Services
 			var title = request.TITLE;
 			var message = request.CONTEXT;
 
-			var repository = _repositoryFactory.CreateRepository(request.Environment);
+			var (_, repository) = RepositoryHelper.CreateRepositories(request.Environment, _repositoryFactory);			
 
 			// 檢查 MAIL 通知開關
 			var mailSwitch = await repository.QueryFirstOrDefaultAsync<string>(

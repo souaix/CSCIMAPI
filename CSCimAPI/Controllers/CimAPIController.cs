@@ -14,6 +14,8 @@ using Core.Entities.LeakageCheck;
 using Core.Entities.MailSender;
 using Core.Entities.TeamsAlarm;
 using Core.Entities.LotTileCheck;
+using Core.Entities.Recipe2DCodeGenerator;
+using System;
 
 namespace CimAPI.Controllers
 {
@@ -127,7 +129,7 @@ namespace CimAPI.Controllers
 		/// <remarks>
 		/// <para>
 		/// {
-		///  "environment": "dboEmapProd",
+		///  "environment": "Production",
 		///  "action":"select",
 		///  "lotno": "WB2025200242-A00072",
 		///  "opno": "BTS00001",
@@ -232,7 +234,7 @@ namespace CimAPI.Controllers
 		/// <para>
 		/// Sample request:
 		///{
-		///  "environment": "csCimEmapProd",
+		///  "environment": "Production",
 		///  "notifygroup": "發信群組",
 		///  "title": "標題",
 		/// "context": "內容", --語法與HTML相同；若要顯示圖片則用 &lt;img src='cid:image1'&gt;
@@ -254,7 +256,7 @@ namespace CimAPI.Controllers
 			try
 			{
 				var result = await _facade.SendEmailAsync(request);
-				return result.Result == "Ok" ? Ok(result) : BadRequest(result);
+				return Ok(result);
 			}
 			catch (Exception ex)
 			{
@@ -268,17 +270,78 @@ namespace CimAPI.Controllers
 		/// </summary>
 		/// <remarks>
 		/// <para>
-		/// Sample request:
+		/// 填洞測漏:
 		///{
-		///  "environment": "dboEmapProd",
+		///  "environment": "Production",
 		///  "action": "CHECK",
-		///  "lotno": "WB2025200242-A00069",
-		///  "step" : "BTS000P1",
-		///  "deviceid":"deviceid"
+		///  "lotno": "WB2024C00093-A00004",
+		///  "steps" : ["BTS00001"]
+		///  "deviceids" : [""]
 		///}
 		///</para>
+		/// <para>
+		/// 測試站:
+		///{
+		///  "environment": "Production",
+		///  "action": "CHECK",
+		///  "lotno": "WB2025100042-A00006",
+		///  "steps" : ["BTS00091"]
+		///  "deviceids" : [""]
+		///}
+		///</para>
+		/// <para>
+		/// 循邊站（多個 Step）:
+		///{
+		///  "environment": "Production",
+		///  "action": "CHECK",
+		///  "lotno": "WB2024C00075-A00040",
+		///  "steps" : ["BTS000D1", "BTS000D2", "BTS000D3", "BTS000D4", "BTS000D5","BTS000Z1", "BTS000Z1-A", "BTS000Z2","BTS00171", "BTS00181", "BTS00181-A"]
+		///  "deviceids" : [""]
+		///}
+		///</para>
+		///<para>
+		/// 尺寸量測站:
+		///{
+		///  "environment": "Production",
+		///  "action": "CHECK",
+		///  "lotno": "WB2024C00158-A00002",
+		///  "steps" : ["BTS00071"]
+		///  "deviceids" : [""]
+		///}
+		///</para>
+		///<para>
+		/// 剝片站:
+		///{
+		///  "environment": "Production",
+		///  "action": "CHECK",
+		///  "lotno": "WB2024A00196-B00002",
+		///  "steps" : ["BTS000D1"]
+		///  "deviceids" : [""]
+		///}
+		///</para>
+		///<para>
+		/// AOI 檢驗站（反面/正面）:
+		///{
+		///  "environment": "Production",
+		///  "action": "CHECK",
+		///  "lotno": "WB2025200047-B00020",
+		///  "steps" : ["BIS00041"]
+		///  "deviceids" : [""]
+		///}
+		///</para>
+		///<para>
+		/// 雷射標示站:
+		///{
+		///  "environment": "Production",
+		///  "action": "CHECK",
+		///  "lotno": "WB2024C00270-A00288",
+		///  "steps" : ["BTS00061"],
+		///  "deviceids" : ["LS-025"]
+		///}
+		///</para>
+		///
 		/// </remarks>
-		[Route("[controller]LotTileCheck")]
+		[Route("[controller]/LotTileCheck")]
 		[HttpPost]
 		public async Task<IActionResult> LotTileCheck([FromBody] LotTileCheckRequest request)
 		{
@@ -300,6 +363,62 @@ namespace CimAPI.Controllers
 				return BadRequest("請求或動作(Action)不能為空。");
 			}
 		}
+
+		/// <summary>
+		/// Recipe 2DCode 產生器
+		/// </summary>
+		/// <remarks>
+		/// <para>
+		/// {
+		///  "environment": "Production",
+		///  "action":"GENERATE",
+		///  "length":300,
+		///  "step": "BTS00001",
+		///  "pn" : "2DP000000068",
+		///  "lotno": "WB2025200242-A00072",
+		///  "gbom": "",
+		///  "sequence":"8",		
+		///  "recipe": ""
+		/// }
+		/// </para>
+		/// </remarks>
+		/// 
+		[Route("[controller]/Recipe2DCodeGenerator")]
+		[HttpPost]
+		public async Task<IActionResult> Generate2DCode([FromBody] Recipe2DCodeRequest request)
+		{
+			try
+			{
+				if (request.Action == "GENERATE") 
+				{
+					var result = await _facade.Save2DCodeAsync(request);
+					return result.Result == "Ok" ? Ok(result) : BadRequest(result);
+				}
+				else if(request.Action == "DOWNLOAD")
+				{
+					var repo = _RepositoryFactory.CreateRepository(request.Environment);
+					var sql = "SELECT RECIPE2DCODE FROM ARGOMESRECIPE2DCODE WHERE LOTNO = :Lotno";
+					var result = await repo.QueryFirstOrDefaultAsync<byte[]>(sql, new { Lotno = request.Lotno });
+
+					if (result == null || result.Length == 0)
+						return NotFound("查無圖檔");
+
+					return File(result, "image/png", $"{request.Lotno}_2dcode.png");
+				}
+				else
+				{
+					return BadRequest("不支援的 Action，請使用 GENERATE 或 DOWNLOAD。");
+				}
+			}
+			catch (Exception ex)
+			{
+				_logger.LogError(ex, "生成 2D 條碼時發生錯誤");
+				return StatusCode(500, "系統錯誤：" + ex.Message);
+			}
+		}
+
+
+
 
 	}
 }

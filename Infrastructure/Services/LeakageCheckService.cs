@@ -29,7 +29,8 @@ namespace Infrastructure.Services
 		{
 			_logger.LogInformation($"[LeakageCheck] Request - lotno: {request.Lotno}, opno: {request.Opno}, deviceid: {request.Deviceid}, diff: {request.Diff}");
 
-			var repository = _repositoryFactory.CreateRepository(request.Environment);
+			var (repository, _) = RepositoryHelper.CreateRepositories(request.Environment, _repositoryFactory);//dbo
+			//var repository = _repositoryFactory.CreateRepository(request.Environment);
 			var process = await DeviceProcessHelper.GetProcessByDeviceIdAsync(repository, request.Deviceid);
 			string tableName = $"TBLMESWIPDATA_{process}";
 
@@ -106,7 +107,8 @@ namespace Infrastructure.Services
 		public async Task<ApiReturn<List<LeakageRawDataDto>>> LeakageSelectAsync(LeakageCheckRequest request)
 		{
 			_logger.LogInformation($"[LeakageSelect] Request - lotno: {request.Lotno}, opno: {request.Opno}, deviceid: {request.Deviceid}");
-			var repository = _repositoryFactory.CreateRepository(request.Environment);
+			//var repository = _repositoryFactory.CreateRepository(request.Environment);
+			var (repository, _) = RepositoryHelper.CreateRepositories(request.Environment, _repositoryFactory);//dbo
 			var process = await DeviceProcessHelper.GetProcessByDeviceIdAsync(repository, request.Deviceid);			
 			string tableName = $"TBLMESWIPDATA_{process}";
 
