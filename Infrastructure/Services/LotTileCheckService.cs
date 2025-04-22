@@ -22,7 +22,7 @@ namespace Infrastructure.Services
 
 			var result = new List<TileCheckResultDto>();
 			
-			var process = await DeviceProcessHelper.GetProcessByDeviceIdAsync(repoCim, request.DeviceIds[0]);
+			var process = await DeviceProcessHelper.GetProcessByDeviceIdAsync(repoDbo, request.DeviceIds[0]);
 			string tableName = $"TBLMESWIPDATA_{process}";
 
 			// 1. 查詢規則表
@@ -240,7 +240,7 @@ namespace Infrastructure.Services
 						THEN 'NG'
 						WHEN chk1 NOT IN (1)
 						THEN 'NG'
-						ELSE ''
+						ELSE 'PASS'
 					END AS Reason
 				FROM joined j
 				LEFT JOIN zz ON j.TileId = zz.TileId AND j.LotNo = zz.LotNo

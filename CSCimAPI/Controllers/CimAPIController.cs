@@ -275,8 +275,8 @@ namespace CimAPI.Controllers
 		///  "environment": "Production",
 		///  "action": "CHECK",
 		///  "lotno": "WB2024C00093-A00004",
-		///  "steps" : ["BTS00001"]
-		///  "deviceids" : [""]
+		///  "steps" : ["BTS00001"],
+		///  "deviceids" : ["LK-004"]
 		///}
 		///</para>
 		/// <para>
@@ -285,8 +285,8 @@ namespace CimAPI.Controllers
 		///  "environment": "Production",
 		///  "action": "CHECK",
 		///  "lotno": "WB2025100042-A00006",
-		///  "steps" : ["BTS00091"]
-		///  "deviceids" : [""]
+		///  "steps" : ["BTS00091"],
+		///  "deviceids" : ["FT-044"]
 		///}
 		///</para>
 		/// <para>
@@ -295,8 +295,8 @@ namespace CimAPI.Controllers
 		///  "environment": "Production",
 		///  "action": "CHECK",
 		///  "lotno": "WB2024C00075-A00040",
-		///  "steps" : ["BTS000D1", "BTS000D2", "BTS000D3", "BTS000D4", "BTS000D5","BTS000Z1", "BTS000Z1-A", "BTS000Z2","BTS00171", "BTS00181", "BTS00181-A"]
-		///  "deviceids" : [""]
+		///  "steps" : ["BTS000D1", "BTS000D2", "BTS000D3", "BTS000D4", "BTS000D5","BTS000Z1", "BTS000Z1-A", "BTS000Z2","BTS00171", "BTS00181", "BTS00181-A"],
+		///  "deviceids" : ["AS-004"]
 		///}
 		///</para>
 		///<para>
@@ -305,8 +305,8 @@ namespace CimAPI.Controllers
 		///  "environment": "Production",
 		///  "action": "CHECK",
 		///  "lotno": "WB2024C00158-A00002",
-		///  "steps" : ["BTS00071"]
-		///  "deviceids" : [""]
+		///  "steps" : ["BTS00071"],
+		///  "deviceids" : ["MT-007"]
 		///}
 		///</para>
 		///<para>
@@ -315,7 +315,7 @@ namespace CimAPI.Controllers
 		///  "environment": "Production",
 		///  "action": "CHECK",
 		///  "lotno": "WB2024A00196-B00002",
-		///  "steps" : ["BTS000D1"]
+		///  "steps" : ["BTS000D1"],
 		///  "deviceids" : [""]
 		///}
 		///</para>
@@ -325,8 +325,8 @@ namespace CimAPI.Controllers
 		///  "environment": "Production",
 		///  "action": "CHECK",
 		///  "lotno": "WB2025200047-B00020",
-		///  "steps" : ["BIS00041"]
-		///  "deviceids" : [""]
+		///  "steps" : ["BIS00041"],
+		///  "deviceids" : ["SA-006"]
 		///}
 		///</para>
 		///<para>
