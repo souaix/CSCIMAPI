@@ -16,7 +16,11 @@ namespace Infrastructure.Utilities
 					factory.CreateRepository("dboEmapTest"),
 					factory.CreateRepository("csCimEmapTest")
 				),
-				_ => throw new Exception("Unknown environment: " + environment)
+                "Develop" => (
+                    factory.CreateRepository("dboEmapTest"),
+                    factory.CreateRepository("cim28")
+                ),
+                _ => throw new Exception("Unknown environment: " + environment)
 			};
 		}
 	}
