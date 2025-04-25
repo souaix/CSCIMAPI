@@ -718,6 +718,7 @@ namespace Infrastructure.Services
             }
 
 
+
             // 查該批號 Table 是否含該 TileID
             int count = await repository.QueryFirstOrDefaultAsync<int>(
                 $@"SELECT COUNT(*) FROM `{lotNo}`
