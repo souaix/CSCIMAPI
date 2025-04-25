@@ -27,6 +27,10 @@
 		public string EvalFormula { get; set; }
 		public string Reason { get; set; }
 		public int? DaysRange { get; set; }
+
+		public string EnableNg { get; set; } // 'Y' or 'N'
+		public string EnableMissingWork { get; set; }
+		public string EnableMixLot { get; set; }
 	}
 
 	public class TileCheckLaserInkDto

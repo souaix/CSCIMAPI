@@ -27,11 +27,12 @@ namespace Infrastructure.Services
 
 			// 1. 查詢規則表
 			var rules = (await repoCim.QueryAsync<RuleCheckDefinition>(
-				@"SELECT STEP, DEVICEIDS, EVALFORMULA AS EvalFormula, REASON, DAYSRANGE, PRIORITY
-				  FROM ARGOAPILOTTILERULECHECK
-				  WHERE STEP IN :steps
-					AND ISENABLED = 'Y'
-				  ORDER BY PRIORITY",
+				@"SELECT STEP, DEVICEIDS, EVALFORMULA AS EvalFormula, REASON, DAYSRANGE, PRIORITY,
+						   ENABLE_NG, ENABLE_MISSINGWORK, ENABLE_MIXLOT
+						  FROM ARGOAPILOTTILERULECHECK
+						  WHERE STEP IN :steps
+							AND ISENABLED = 'Y'
+						  ORDER BY PRIORITY",
 				new { steps = request.Steps })).ToList();
 
 
@@ -88,21 +89,26 @@ namespace Infrastructure.Services
 				new { lotno = request.LotNo })).Select(x => x.TileId).ToHashSet();
 
 			var producedTileSet = records.Select(x => x.TileId).ToHashSet();
-			var missingTiles = laserTiles.Except(producedTileSet);
-
-			foreach (var tileId in missingTiles)
+			var allowMissingWork = rules.Any(r => r.EnableMissingWork == "Y");
+			if (allowMissingWork)
 			{
-				result.Add(new TileCheckResultDto
+				var missingTiles = laserTiles.Except(producedTileSet);
+				foreach (var tileId in missingTiles)
 				{
-					TileId = tileId,
-					LotNo = request.LotNo,
-					ResultList = "Black",
-					Reason = "MissingWork",
-					RecordDate = null
-				});
+					result.Add(new TileCheckResultDto
+					{
+						TileId = tileId,
+						LotNo = request.LotNo,
+						ResultList = "Black",
+						Reason = "MissingWork",
+						RecordDate = null
+					});
+				}
 			}
 
 			// 5. 檢查每筆設備資料
+			var allowMixLot = rules.Any(r => r.EnableMixLot == "Y");
+
 			foreach (var record in records)
 			{
 				var matchRule = rules.FirstOrDefault(r => DeviceMatch(r.DeviceIds, record.DeviceId));
@@ -117,7 +123,7 @@ namespace Infrastructure.Services
 				}
 				else
 				{
-					if (matchRule != null && EvalHelper.Evaluate(matchRule.EvalFormula, context))
+					if (matchRule != null && matchRule.EnableNg == "Y" && EvalHelper.Evaluate(matchRule.EvalFormula, context))
 					{
 						result.Add(new TileCheckResultDto
 						{
@@ -128,7 +134,7 @@ namespace Infrastructure.Services
 							RecordDate = record.RecordDate
 						});
 					}
-					else if (!laserTiles.Contains(record.TileId)) // mix lot
+					else if (allowMixLot && !laserTiles.Contains(record.TileId))
 					{
 						result.Add(new TileCheckResultDto
 						{
