@@ -6,8 +6,10 @@
 		public string Environment { get; set; }
 		public string Action { get; set; }
 		public string LotNo { get; set; }
-		public List<string> Steps { get; set; }  // 改成多個 Step
-		public List<string> DeviceIds { get; set; }  // 改成多個 deviceid
+		public string Step { get; set; }  // 改成多個 Step
+		public string DeviceId { get; set; }  // 改成多個 deviceid
+		public int? DisableMissingWorkFlag { get; set; } // null or 1
+
 
 	}
 
@@ -27,6 +29,10 @@
 		public string EvalFormula { get; set; }
 		public string Reason { get; set; }
 		public int? DaysRange { get; set; }
+
+		public string EnableNg { get; set; } // 'Y' or 'N'
+		public string EnableMissingWork { get; set; }
+		public string EnableMixLot { get; set; }
 	}
 
 	public class TileCheckLaserInkDto

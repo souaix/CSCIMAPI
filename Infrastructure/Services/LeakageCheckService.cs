@@ -9,51 +9,49 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 using Infrastructure.Utilities;
+using Core.Entities.LotTileCheck;
 
 namespace Infrastructure.Services
 {
-
-
-
 	public class LeakageCheckService : ILeakageCheckService
-    {
-        private readonly IRepositoryFactory _repositoryFactory;
-        private readonly ILogger<LeakageCheckService> _logger;
+	{
+		private readonly IRepositoryFactory _repositoryFactory;
+		private readonly ILogger<LeakageCheckService> _logger;
 
-        public LeakageCheckService(IRepositoryFactory repositoryFactory, ILogger<LeakageCheckService> logger)
-        {
-            _repositoryFactory = repositoryFactory;
-            _logger = logger;
-        }
+		public LeakageCheckService(IRepositoryFactory repositoryFactory, ILogger<LeakageCheckService> logger)
+		{
+			_repositoryFactory = repositoryFactory;
+			_logger = logger;
+		}
+
 		public async Task<ApiReturn<List<LeakageAnomalyDto>>> LeakageCheckAsync(LeakageCheckRequest request)
 		{
 			_logger.LogInformation($"[LeakageCheck] Request - lotno: {request.Lotno}, opno: {request.Opno}, deviceid: {request.Deviceid}, diff: {request.Diff}");
 
-			var (repository, _) = RepositoryHelper.CreateRepositories(request.Environment, _repositoryFactory);//dbo
-			//var repository = _repositoryFactory.CreateRepository(request.Environment);
-			var process = await DeviceProcessHelper.GetProcessByDeviceIdAsync(repository, request.Deviceid);
+			var (repoDbo, repoCim) = RepositoryHelper.CreateRepositories(request.Environment, _repositoryFactory);
+			var (stepsToQuery, deviceIdsToQuery) = await new LotTileCheckService(_repositoryFactory).DataQueryModeAsync(repoCim, request.Opno, request.Deviceid);
+
+			// 新增：查詢規則表決定最大天數
+			var rules = (await repoCim.QueryAsync<RuleCheckDefinition>(
+				@"SELECT DAYSRANGE 
+				  FROM ARGOAPILOTTILERULECHECK 
+				  WHERE STEP IN :steps",
+				new { steps = stepsToQuery })).ToList();
+			var maxDays = rules.Max(r => r.DaysRange ?? 90);
+
+			var process = await DeviceProcessHelper.GetProcessByDeviceIdAsync(repoDbo, request.Deviceid);
 			string tableName = $"TBLMESWIPDATA_{process}";
-
-			var deviceList = request.Deviceids
-				.Split(',', StringSplitOptions.RemoveEmptyEntries)
-				.Select(x => x.Trim())
-				.ToArray();
-
-			//--查詢說明：
-			//--1.撈近 30 天內相同 LOTNO 的資料
-			//-- 2.每個 TILEID 抓最大值的 NG 與最小值的 OK（根據 V008）
-			//--3.若同時存在，計算 V008 差值並比較是否大於指定門檻
 
 			string sql = $@"
                 WITH XX AS (
                     SELECT TILEID, RECORDDATE, V007, V008
                     FROM {tableName}
                     WHERE LOTNO = :lotno
-                      AND STEP = :opno
+                      AND STEP IN :steps
                       AND DEVICEID IN :deviceids
                       AND CSTYPE = 'PD'
                       AND TILEID IS NOT NULL
-                      AND RECORDDATE > (TRUNC(SYSDATE) - 30)
+                      AND RECORDDATE > (TRUNC(SYSDATE) - :daysRange)
                 ),
                 NG AS (
                     SELECT TILEID, V008 AS NG_V008, RECORDDATE AS NG_DATE
@@ -75,7 +73,7 @@ namespace Infrastructure.Services
                     NG.TILEID,
                     NG.NG_DATE AS NG_RECORDDATE,
                     OK.OK_DATE AS OK_RECORDDATE,
-                    'NG←→OK' AS V007,
+                    'NG↔OK' AS V007,
                     NG.NG_V008,
                     OK.OK_V008,
                     NG.NG_DATE AS RECORDDATE,
@@ -85,11 +83,12 @@ namespace Infrastructure.Services
                 JOIN OK ON NG.TILEID = OK.TILEID
                 WHERE ABS(TO_NUMBER(NG.NG_V008) - TO_NUMBER(OK.OK_V008)) > :diff";
 
-			var records = (await repository.QueryAsync<LeakageAnomalyDto>(sql, new
+			var records = (await repoDbo.QueryAsync<LeakageAnomalyDto>(sql, new
 			{
 				lotno = request.Lotno,
-				opno = request.Opno,
-				deviceids = deviceList,
+				steps = stepsToQuery,
+				deviceids = deviceIdsToQuery,
+				daysRange = maxDays,
 				diff = request.Diff
 			}))?.ToList();
 
@@ -107,32 +106,37 @@ namespace Infrastructure.Services
 		public async Task<ApiReturn<List<LeakageRawDataDto>>> LeakageSelectAsync(LeakageCheckRequest request)
 		{
 			_logger.LogInformation($"[LeakageSelect] Request - lotno: {request.Lotno}, opno: {request.Opno}, deviceid: {request.Deviceid}");
-			//var repository = _repositoryFactory.CreateRepository(request.Environment);
-			var (repository, _) = RepositoryHelper.CreateRepositories(request.Environment, _repositoryFactory);//dbo
-			var process = await DeviceProcessHelper.GetProcessByDeviceIdAsync(repository, request.Deviceid);			
-			string tableName = $"TBLMESWIPDATA_{process}";
 
-			var deviceList = request.Deviceids
-				.Split(',', StringSplitOptions.RemoveEmptyEntries)
-				.Select(x => x.Trim())
-				.ToArray();
+			var (repoDbo, repoCim) = RepositoryHelper.CreateRepositories(request.Environment, _repositoryFactory);
+			var (stepsToQuery, deviceIdsToQuery) = await new LotTileCheckService(_repositoryFactory).DataQueryModeAsync(repoCim, request.Opno, request.Deviceid);
+
+			var rules = (await repoCim.QueryAsync<RuleCheckDefinition>(
+				@"SELECT DAYSRANGE 
+				  FROM ARGOAPILOTTILERULECHECK 
+				  WHERE STEP IN :steps",
+				new { steps = stepsToQuery })).ToList();
+			var maxDays = rules.Max(r => r.DaysRange ?? 90);
+
+			var process = await DeviceProcessHelper.GetProcessByDeviceIdAsync(repoDbo, request.Deviceid);
+			string tableName = $"TBLMESWIPDATA_{process}";
 
 			string sql = $@"
                 SELECT TILEID, V007, V008, RECORDDATE
                 FROM {tableName}
                 WHERE LOTNO = :lotno
-                  AND STEP = :opno
+                  AND STEP IN :steps
                   AND DEVICEID IN :deviceids
                   AND CSTYPE = 'PD'
                   AND TILEID IS NOT NULL
-                  AND RECORDDATE > (TRUNC(SYSDATE) - 30)
+                  AND RECORDDATE > (TRUNC(SYSDATE) - :daysRange)
                 ORDER BY TILEID, RECORDDATE";
 
-			var rows = (await repository.QueryAsync<LeakageRawDataDto>(sql, new
+			var rows = (await repoDbo.QueryAsync<LeakageRawDataDto>(sql, new
 			{
 				lotno = request.Lotno,
-				opno = request.Opno,
-				deviceids = deviceList
+				steps = stepsToQuery,
+				deviceids = deviceIdsToQuery,
+				daysRange = maxDays
 			}))?.ToList();
 
 			return ApiReturn<List<LeakageRawDataDto>>.Success("查詢成功", rows);

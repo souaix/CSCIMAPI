@@ -2,7 +2,9 @@
 using Core.Entities.LotTileCheck;
 using Core.Entities.Public;
 using Core.Interfaces;
+using Dapper;
 using Infrastructure.Utilities;
+using System.Text;
 
 namespace Infrastructure.Services
 {
@@ -18,25 +20,30 @@ namespace Infrastructure.Services
 		public async Task<ApiReturn<List<TileCheckResultDto>>> CheckLotTileAsync(LotTileCheckRequest request)
 		{
 			var (repoDbo, repoCim) = RepositoryHelper.CreateRepositories(request.Environment, _repositoryFactory);
-
-
 			var result = new List<TileCheckResultDto>();
-			
-			var process = await DeviceProcessHelper.GetProcessByDeviceIdAsync(repoCim, request.DeviceIds[0]);
-			string tableName = $"TBLMESWIPDATA_{process}";
 
-			// 1. 查詢規則表
+			//解析查詢規則(S1~S4)
+			var (stepsToQuery, deviceIdsToQuery) = await DataQueryModeAsync(repoCim, request.Step, request.DeviceId);
+
 			var rules = (await repoCim.QueryAsync<RuleCheckDefinition>(
-				@"SELECT STEP, DEVICEIDS, EVALFORMULA AS EvalFormula, REASON, DAYSRANGE, PRIORITY
-				  FROM ARGOAPILOTTILERULECHECK
-				  WHERE STEP IN :steps
-					AND ISENABLED = 'Y'
+				@"SELECT STEP, DEVICEIDS, EVALFORMULA AS EvalFormula, REASON, PRIORITY, DAYSRANGE, ENABLEMISSINGWORK, ENABLEMIXLOT, ENABLENG
+				  FROM ARGOAPILOTTILERULECHECK 
+				  WHERE STEP IN :steps 
 				  ORDER BY PRIORITY",
-				new { steps = request.Steps })).ToList();
-
+				new { steps = stepsToQuery })).ToList();
 
 			if (!rules.Any())
 				return ApiReturn<List<TileCheckResultDto>>.Warning("無對應規則", result);
+
+			// 🔥 多台 deviceids 查出各自的 process
+			var deviceProcessMap = await DeviceProcessHelper.GetProcessByDeviceIdsAsync(repoDbo, deviceIdsToQuery);
+
+			// 🔥 GroupBy process
+			var processGroups = deviceProcessMap.GroupBy(x => x.Value)
+				.ToDictionary(g => g.Key, g => g.Select(x => x.Key).ToList());
+
+			// 2. 推算最大天數範圍
+			var maxDays = rules.Max(r => r.DaysRange ?? 90);
 
 			// ✅ 若有雷射規則，優先處理
 			var laserOnly = rules.All(r => r.EvalFormula.Contains("LaserCheck"));
@@ -44,8 +51,8 @@ namespace Infrastructure.Services
 			{
 				var rule = rules.First();
 				var deviceIds = rule.DeviceIds?.Split(',').Select(d => d.Trim()).ToArray() ?? Array.Empty<string>();
-				var days = rule.DaysRange ?? 120;
-				var laserResults = await LaserInkAsync(repoDbo, request.LotNo, deviceIds, days);
+
+				var laserResults = await LaserInkAsync(repoDbo, request.LotNo, deviceIds, maxDays);
 				return ApiReturn<List<TileCheckResultDto>>.Success("完成雷射站比對", laserResults
 					.Select(x => new TileCheckResultDto
 					{
@@ -57,67 +64,87 @@ namespace Infrastructure.Services
 					}).ToList());
 			}
 
+			// 3. 撈 WIP 資料 (UNION ALL 多表)
+			var unionSql = new StringBuilder();
+			var parameters = new DynamicParameters();
+			parameters.Add("lotno", request.LotNo);
+			parameters.Add("steps", stepsToQuery);
+			parameters.Add("days", maxDays);
 
-			// 2. 推算最大天數範圍（多條規則可能不一樣，取最大）
-			var maxDays = rules.Max(r => r.DaysRange ?? 90);
+			int idx = 0;
+			foreach (var group in processGroups)
+			{
+				string process = group.Key;
+				var devs = group.Value;
 
-			// 3. 查詢最新設備資料
-			var records = (await repoDbo.QueryAsync<TblMesWipData_Record>(
-				@$"SELECT *
-				   FROM (
-					   SELECT TILEID, LOTNO, STEP, DEVICEID, RECORDDATE,
-							  V001, V002, V003, V004, V005, V006, V007, V008,
-							  V010, V011, V014, V015, V036, V037,
-							  ROW_NUMBER() OVER (PARTITION BY TILEID ORDER BY RECORDDATE DESC) AS RN
-					   FROM {tableName}
-					   WHERE LOTNO = :lotno
-						 AND STEP IN :steps
-						 AND TILEID IS NOT NULL
-						 AND RECORDDATE >= TRUNC(SYSDATE) - :days
-				   ) T
-				   WHERE RN = 1",
-				new { lotno = request.LotNo, steps = request.Steps, days = maxDays }
-			)).ToList();
+				string paramName = $"deviceids{idx}";
+				parameters.Add(paramName, devs);
 
+				if (idx > 0) unionSql.AppendLine("UNION ALL");
 
+				unionSql.AppendLine($@"
+				SELECT * FROM (
+				SELECT TILEID, LOTNO, STEP, DEVICEID, RECORDDATE,
+					   V001, V002, V003, V004, V005, V006, V007, V008,
+					   V010, V011, V014, V015, V036, V037,
+					   ROW_NUMBER() OVER (PARTITION BY TILEID ORDER BY RECORDDATE DESC) AS RN
+				FROM TBLMESWIPDATA_{process}
+				WHERE LOTNO = :lotno
+				  AND STEP IN :steps
+				  AND DEVICEID IN :{paramName}
+				  AND TILEID IS NOT NULL
+				  AND RECORDDATE >= TRUNC(SYSDATE) - :days
+				) WHERE RN = 1");
 
+				idx++;
+			}
 
-			// 4. 建立雷射蓋印清單（供 MissingWork / MixLot 判斷）
+			var records = (await repoDbo.QueryAsync<TblMesWipData_Record>(unionSql.ToString(), parameters)).ToList();
+
+			// 4. 建立雷射蓋印清單
 			var laserTiles = (await repoDbo.QueryAsync<TBLWIPLOTMARKINGDATA>(
-				@"SELECT TILEID FROM TBLWIPLOTMARKINGDATA WHERE LOTNO = :lotno",
+				"SELECT TILEID FROM TBLWIPLOTMARKINGDATA WHERE LOTNO = :lotno",
 				new { lotno = request.LotNo })).Select(x => x.TileId).ToHashSet();
 
 			var producedTileSet = records.Select(x => x.TileId).ToHashSet();
-			var missingTiles = laserTiles.Except(producedTileSet);
-
-			foreach (var tileId in missingTiles)
+			var allowMissingWork = rules.Any(r => r.EnableMissingWork == "Y");
+			if (request.DisableMissingWorkFlag == 1)
 			{
-				result.Add(new TileCheckResultDto
-				{
-					TileId = tileId,
-					LotNo = request.LotNo,
-					ResultList = "Black",
-					Reason = "MissingWork",
-					RecordDate = null
-				});
+				allowMissingWork = false;
 			}
 
-			// 5. 檢查每筆設備資料
+			if (allowMissingWork)
+			{
+				var missingTiles = laserTiles.Except(producedTileSet);
+				foreach (var tileId in missingTiles)
+				{
+					result.Add(new TileCheckResultDto
+					{
+						TileId = tileId,
+						LotNo = request.LotNo,
+						ResultList = "Black",
+						Reason = "MissingWork",
+						RecordDate = null
+					});
+				}
+			}
+
+			// 5. 檢查每筆資料
+			var allowMixLot = rules.Any(r => r.EnableMixLot == "Y");
+
 			foreach (var record in records)
 			{
 				var matchRule = rules.FirstOrDefault(r => DeviceMatch(r.DeviceIds, record.DeviceId));
 				var context = ToEvalContext(record);
 
-				// ✅ 根據規則表是否需要 LaserCheck 決定是否加上
 				if (matchRule != null && matchRule.EvalFormula.Contains("LaserCheck"))
 				{
 					context["LaserCheck"] = true;
-					// 👉 呼叫專門的雷射站處理邏輯
 					continue;
 				}
 				else
 				{
-					if (matchRule != null && EvalHelper.Evaluate(matchRule.EvalFormula, context))
+					if (matchRule != null && matchRule.EnableNg == "Y" && EvalHelper.Evaluate(matchRule.EvalFormula, context))
 					{
 						result.Add(new TileCheckResultDto
 						{
@@ -128,7 +155,7 @@ namespace Infrastructure.Services
 							RecordDate = record.RecordDate
 						});
 					}
-					else if (!laserTiles.Contains(record.TileId)) // mix lot
+					else if (allowMixLot && !laserTiles.Contains(record.TileId))
 					{
 						result.Add(new TileCheckResultDto
 						{
@@ -158,8 +185,15 @@ namespace Infrastructure.Services
 
 		private static bool DeviceMatch(string ruleDeviceIds, string actualDeviceId)
 		{
-			if (ruleDeviceIds == "*") return true;
-			return ruleDeviceIds.Split(',').Any(d => d.Trim() == actualDeviceId);
+			if (string.IsNullOrWhiteSpace(ruleDeviceIds) || string.IsNullOrWhiteSpace(actualDeviceId))
+				return false;
+
+			if (ruleDeviceIds.Trim() == "*")
+				return true;
+
+			return ruleDeviceIds.Split(',')
+				.Select(d => d.Trim())
+				.Any(d => string.Equals(d, actualDeviceId, StringComparison.OrdinalIgnoreCase));
 		}
 
 		private static Dictionary<string, object> ToEvalContext(TblMesWipData_Record record)
@@ -240,7 +274,7 @@ namespace Infrastructure.Services
 						THEN 'NG'
 						WHEN chk1 NOT IN (1)
 						THEN 'NG'
-						ELSE ''
+						ELSE 'PASS'
 					END AS Reason
 				FROM joined j
 				LEFT JOIN zz ON j.TileId = zz.TileId AND j.LotNo = zz.LotNo
@@ -250,5 +284,83 @@ namespace Infrastructure.Services
 			var data = await repo.QueryAsync<TileCheckLaserInkDto>(sql, new { lotNo, daysRange });
 			return data.ToList();
 		}
+
+
+		//此段為查詢設定表，依站點決定要走單站單機或是單站多機, 多站單機或是多站多機
+		public async Task<(List<string> Steps, List<string> DeviceIds)> DataQueryModeAsync(
+			IRepository repo, string step, string deviceId)
+		{
+			// 查詢模式與群組
+			var modeRow = await repo.QueryFirstOrDefaultAsync<(string QueryMode, string StepGroup)>(
+				@"SELECT QUERYMODE, STEPGROUP 
+          FROM ARGOAPILOTTILESTEPMODE 
+          WHERE STEP = :step", new { step });
+
+			if (modeRow.QueryMode == null)
+			{
+				throw new Exception("未設定黑白名單站點對應邏輯，請洽詢工程師");
+			}
+
+			var queryMode = modeRow.QueryMode;
+			var stepGroup = modeRow.StepGroup;
+
+			List<string> steps = new();
+			List<string> deviceIds = new();
+
+			switch (queryMode)
+			{
+				case "S1": // 單站 + 單機
+					steps.Add(step);
+					deviceIds.Add(deviceId);
+					break;
+
+				case "S2": // 單站 + 多機
+					steps.Add(step);
+					var rulesS2 = await repo.QueryAsync<string>(
+						@"SELECT DISTINCT DEVICEIDS 
+                  FROM ARGOAPILOTTILERULECHECK 
+                  WHERE STEP = :step", new { step });
+					deviceIds = rulesS2
+						.SelectMany(s => s.Split(','))
+						.Select(x => x.Trim())
+						.Distinct()
+						.ToList();
+					break;
+
+				case "S3": // 同群組多站 + 單機
+					steps = (await repo.QueryAsync<string>(
+						@"SELECT STEP 
+                  FROM ARGOAPILOTTILESTEPMODE 
+                  WHERE STEPGROUP = :stepgroup", new { stepgroup = stepGroup }))
+						.ToList();
+					deviceIds.Add(deviceId);
+					break;
+
+				case "S4": // 同群組多站 + 多機
+					steps = (await repo.QueryAsync<string>(
+						@"SELECT STEP 
+                  FROM ARGOAPILOTTILESTEPMODE 
+                  WHERE STEPGROUP = :stepgroup", new { stepgroup = stepGroup }))
+						.ToList();
+
+					var rulesS4 = await repo.QueryAsync<string>(
+						@"SELECT DISTINCT DEVICEIDS 
+                  FROM ARGOAPILOTTILERULECHECK 
+                  WHERE STEP IN :steps", new { steps });
+
+					deviceIds = rulesS4
+						.SelectMany(s => s.Split(','))
+						.Select(x => x.Trim())
+						.Distinct()
+						.ToList();
+					break;
+
+				default:
+					throw new Exception($"未知的查詢模式：{queryMode}");
+			}
+
+			return (steps, deviceIds);
+		}
+
 	}
 }
