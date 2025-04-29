@@ -130,7 +130,7 @@ namespace CimAPI.Controllers
 		/// <para>
 		/// {
 		///  "environment": "Production",
-		///  "action":"select",
+		///  "action":"SELECT",
 		///  "lotno": "WB2025200242-A00072",
 		///  "opno": "BTS00001",
 		///  "deviceid": "LK-007",
@@ -275,8 +275,8 @@ namespace CimAPI.Controllers
 		///  "environment": "Production",
 		///  "action": "CHECK",
 		///  "lotno": "WB2024C00093-A00004",
-		///  "steps" : ["BTS00001"],
-		///  "deviceids" : ["LK-004"]
+		///  "step" : "BTS00001",
+		///  "deviceid" : "LK-004"
 		///}
 		///</para>
 		/// <para>
@@ -285,8 +285,8 @@ namespace CimAPI.Controllers
 		///  "environment": "Production",
 		///  "action": "CHECK",
 		///  "lotno": "WB2025100042-A00006",
-		///  "steps" : ["BTS00091"],
-		///  "deviceids" : ["FT-044"]
+		///  "step" : "BTS00091",
+		///  "deviceid" : "FT-044"
 		///}
 		///</para>
 		/// <para>
@@ -295,8 +295,8 @@ namespace CimAPI.Controllers
 		///  "environment": "Production",
 		///  "action": "CHECK",
 		///  "lotno": "WB2024C00075-A00040",
-		///  "steps" : ["BTS000D1", "BTS000D2", "BTS000D3", "BTS000D4", "BTS000D5","BTS000Z1", "BTS000Z1-A", "BTS000Z2","BTS00171", "BTS00181", "BTS00181-A"],
-		///  "deviceids" : ["AS-004"]
+		///  "step" : "BTS000D1",
+		///  "deviceid" : "AS-004"
 		///}
 		///</para>
 		///<para>
@@ -305,8 +305,8 @@ namespace CimAPI.Controllers
 		///  "environment": "Production",
 		///  "action": "CHECK",
 		///  "lotno": "WB2024C00158-A00002",
-		///  "steps" : ["BTS00071"],
-		///  "deviceids" : ["MT-007"]
+		///  "step" : "BTS00071",
+		///  "deviceid" : "MT-007"
 		///}
 		///</para>
 		///<para>
@@ -315,8 +315,8 @@ namespace CimAPI.Controllers
 		///  "environment": "Production",
 		///  "action": "CHECK",
 		///  "lotno": "WB2024A00196-B00002",
-		///  "steps" : ["BTS000D1"],
-		///  "deviceids" : [""]
+		///  "step" : "BTS000D1",
+		///  "deviceid" : ""
 		///}
 		///</para>
 		///<para>
@@ -325,18 +325,18 @@ namespace CimAPI.Controllers
 		///  "environment": "Production",
 		///  "action": "CHECK",
 		///  "lotno": "WB2025200047-B00020",
-		///  "steps" : ["BIS00041"],
-		///  "deviceids" : ["SA-006"]
+		///  "step" : "BTS00071",
+		///  "deviceid" : "AT-001"
 		///}
-		///</para>
+		///</para>				
 		///<para>
 		/// 雷射標示站:
 		///{
 		///  "environment": "Production",
 		///  "action": "CHECK",
 		///  "lotno": "WB2024C00270-A00288",
-		///  "steps" : ["BTS00061"],
-		///  "deviceids" : ["LS-025"]
+		///  "step" : "BTS00061",
+		///  "deviceid" : "LS-025"
 		///}
 		///</para>
 		///
