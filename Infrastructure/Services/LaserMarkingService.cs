@@ -290,15 +290,46 @@ namespace Infrastructure.Services
             //var configMappingL = BuildFullDateCodeMapping(config);
 
             // 2. 將 TILEID 拆解並解析成每段轉換值（例：TXT=JK → JK, YC → H）
-            var tileIdParts = config.TileId?.Split(',') ?? Array.Empty<string>();
-
+            //var tileIdParts = config.TileId?.Split(',') ?? Array.Empty<string>();
+            string[] tileIdParts = Array.Empty<string>();
             // 3. 抓取 TILEID 第一段（對應 {@CONFIG.TILEID[0].SUBSTRING(x)} 替換用）
             //string tilePrefix = resolvedParts.FirstOrDefault() ?? "";
             //string tilePrefix = StringCodeMapping.Convert(tileIdParts.FirstOrDefault(), request.LotNo) ?? "";
-            string tilePrefix = tileIdParts.FirstOrDefault()?.Trim() ?? "";
+            //string tilePrefix = tileIdParts.FirstOrDefault()?.Trim() ?? "";
+            string tilePrefix = "";
+
+            if (customerConfig.UseConfigTileIdPrefix == "Y")
+            {
+                // 走用 Config TileID 自動產生的方式
+                //tilePrefix = BuildTileIdPrefixFromConfig(config, request.LotNo, customerConfig.UseDateCodeMapping == "Y");
+                //tilePrefix = BuildTileIdPrefixFromConfig(
+                //        config,
+                //        request.LotNo,
+                //        customerConfig.UseDateCodeMapping == "Y" ? BuildFullDateCodeMapping(config) : new Dictionary<string, string>()
+                //    );
+                tilePrefix = BuildTileIdPrefixFromConfig(
+                    config,
+                    request.LotNo,
+                    customerConfig.UseDateCodeMapping == "Y",
+                    BuildFullDateCodeMapping(config)
+                );
+
+
+            }
+            else
+            {
+                // 保持原本的
+                tileIdParts = config.TileId?.Split(',') ?? Array.Empty<string>();
+                tilePrefix = tileIdParts.FirstOrDefault()?.Trim() ?? "";
+            }
+
+
             var configMappingL = BuildFullDateCodeMapping(config);
             // 4. 替換 SQL 條件中 {@...} 的所有變數
-            string whereClause = BuildWhereClause(customerConfig.SelectLastSn, configMappingL, tilePrefix);
+            //string whereClause = BuildWhereClause(customerConfig.SelectLastSn, configMappingL, tilePrefix);
+            //string whereClause = BuildWhereClause(customerConfig.SelectLastSn, configMappingL, tilePrefix, customerConfig);
+            string whereClause = BuildWhereClause(config, customerConfig, tilePrefix);
+
 
             // （可選）除錯 log
             //Console.WriteLine($"[tilePrefix] {tilePrefix}");
@@ -732,6 +763,51 @@ namespace Infrastructure.Services
             return count > 0 ? lotNo : null;
         }
 
+        //private static string BuildTileIdPrefixFromConfig(Config config, string lotNo, bool useDateCodeMapping)
+        private static string BuildTileIdPrefixFromConfig(Config config, string lotNo, bool useDateCodeMapping, Dictionary<string, string> configMapping)
+        
+        {
+            if (config.TileId == null)
+                return "";
+
+            var tileIdParts = config.TileId.Split(',').Select(part => part.Trim()).ToList();
+            if (tileIdParts.Count == 0)
+                return "";
+
+            var prefixBuilder = new List<string>();
+
+            foreach (var part in tileIdParts)
+            {
+                if (part == "SN" || part == "GSC")
+                    break;
+
+                string value;
+
+                if (useDateCodeMapping && (part == "YC" || part == "MC" || part == "DC"))
+                {
+                    // 使用 DateCodeMapping
+                    //var dummyMapping = new Dictionary<string, string>(); // 如果需要支援，外層要傳入 mapping
+                    //value = DateCodeMapping.Convert(part, dummyMapping);
+                    //value = DateCodeMapping.Convert(part, configMapping);
+                    if (configMapping.TryGetValue(part, out var mapped))
+                    {
+                        value = mapped;
+                    }
+                    else
+                    {
+                        throw new Exception($"TileIdPrefix組合錯誤：缺少 {part} 的對應值，請檢查 Config 設定！");
+                    }
+                }
+                else
+                {
+                    value = StringCodeMapping.Convert(part, lotNo);
+                }
+
+                prefixBuilder.Add(value);
+            }
+
+            return string.Join("", prefixBuilder);
+        }
 
 
         private async Task SaveProductTable(IRepository repository, string lotNo,string customer, string productName, List<string> tileIds, string lastSN,string finalTileid, Config config, bool isTopSide)
@@ -768,71 +844,106 @@ namespace Infrastructure.Services
                 });
         }
 
-        private string BuildWhereClause(string template, Dictionary<string, string> configMapping, string tilePrefix)
+
+        private static string BuildWhereClause(Config config, CustomerConfig customerConfig, string tilePrefix)
         {
-            if (string.IsNullOrEmpty(template)) return "";
+            if (customerConfig.EnableFlag != "Y")
+                throw new Exception($"此客戶設定已停用 (EnableFlag=N)，請檢查 CustomerConfig 資料！");
 
-            var pattern = @"\{@(.*?)\}";
-            var matches = Regex.Matches(template, pattern);
-
-            var replacements = new Dictionary<string, string>();
-
-            foreach (Match match in matches)
+            var conditions = new List<string>
             {
-                string raw = match.Groups[1].Value;
-                string fullKey = match.Value;
-                string result = "";
+                $"CUSTOMER = '{config.Customer}'"
+            };
 
-                if (raw.Contains("SUBSTRING"))  // ✅ 修正重點在這
-                {
-                    var subMatch = Regex.Match(raw, @"SUBSTRING\((\d+)(?:,\s*(\d+))?\)");
-                    if (subMatch.Success)
-                    {
-                        int start = int.Parse(subMatch.Groups[1].Value);
-                        int length = subMatch.Groups[2].Success ? int.Parse(subMatch.Groups[2].Value) : -1;
-
-                        if (start >= tilePrefix.Length)
-                        {
-                            result = "";
-                        }
-                        else if (length == -1)
-                        {
-                            result = tilePrefix.Substring(start);
-                        }
-                        else if (start + length <= tilePrefix.Length)
-                        {
-                            result = tilePrefix.Substring(start, length);
-                        }
-                        else
-                        {
-                            result = tilePrefix.Substring(start);
-                        }
-                    }
-                }
-                else if (raw == "YC" || raw == "MC" || raw == "DC" || raw == "YY" || raw == "MM" || raw == "DD" || raw == "WW")
-                {
-                    configMapping.TryGetValue(raw, out result);
-                }
-                else if (Regex.IsMatch(raw, @"@")) // 例如 @yy@MM@dd
-                {
-                    result = raw
-                        .Replace("yy", DateTime.Now.ToString("yy"))
-                        .Replace("MM", DateTime.Now.ToString("MM"))
-                        .Replace("dd", DateTime.Now.ToString("dd"))
-                        .Replace("WW", CultureInfo.InvariantCulture.Calendar
-                            .GetWeekOfYear(DateTime.Now, CalendarWeekRule.FirstDay, DayOfWeek.Sunday)
-                            .ToString("D2"));
-                }
-                else
-                {
-                    configMapping.TryGetValue(raw, out result);
-                }
-
-                replacements[fullKey] = result ?? "";
+            // 需要加上 TileID like 條件
+            if (customerConfig.UseConfigTileIdPrefix == "Y" && !string.IsNullOrEmpty(tilePrefix))
+            {
+                conditions.Add($"TILEID LIKE '{tilePrefix}%'");
             }
 
-            return replacements.Aggregate(template, (current, pair) => current.Replace(pair.Key, pair.Value));
+            // 需要比對 CreateDate
+            if (customerConfig.CompareCreateDate == "Y")
+            {
+                string today = DateTime.Now.ToString("yyMMdd");
+                conditions.Add($"CreateDate = '{today}'");
+            }
+
+            // 組合 WHERE 條件
+            string whereClause = "WHERE " + string.Join(" AND ", conditions);
+
+            // 最後加上 ORDER BY LastSN DESC
+            whereClause += " ORDER BY LastSN DESC";
+
+            return whereClause;
         }
+
+
+
+        //private string BuildWhereClause(string template, Dictionary<string, string> configMapping, string tilePrefix)
+        //{
+        //    if (string.IsNullOrEmpty(template)) return "";
+
+        //    var pattern = @"\{@(.*?)\}";
+        //    var matches = Regex.Matches(template, pattern);
+
+        //    var replacements = new Dictionary<string, string>();
+
+        //    foreach (Match match in matches)
+        //    {
+        //        string raw = match.Groups[1].Value;
+        //        string fullKey = match.Value;
+        //        string result = "";
+
+        //        if (raw.Contains("SUBSTRING"))  // ✅ 修正重點在這
+        //        {
+        //            var subMatch = Regex.Match(raw, @"SUBSTRING\((\d+)(?:,\s*(\d+))?\)");
+        //            if (subMatch.Success)
+        //            {
+        //                int start = int.Parse(subMatch.Groups[1].Value);
+        //                int length = subMatch.Groups[2].Success ? int.Parse(subMatch.Groups[2].Value) : -1;
+
+        //                if (start >= tilePrefix.Length)
+        //                {
+        //                    result = "";
+        //                }
+        //                else if (length == -1)
+        //                {
+        //                    result = tilePrefix.Substring(start);
+        //                }
+        //                else if (start + length <= tilePrefix.Length)
+        //                {
+        //                    result = tilePrefix.Substring(start, length);
+        //                }
+        //                else
+        //                {
+        //                    result = tilePrefix.Substring(start);
+        //                }
+        //            }
+        //        }
+        //        else if (raw == "YC" || raw == "MC" || raw == "DC" || raw == "YY" || raw == "MM" || raw == "DD" || raw == "WW")
+        //        {
+        //            configMapping.TryGetValue(raw, out result);
+        //        }
+        //        else if (Regex.IsMatch(raw, @"@")) // 例如 @yy@MM@dd
+        //        {
+        //            result = raw
+        //                .Replace("yy", DateTime.Now.ToString("yy"))
+        //                .Replace("MM", DateTime.Now.ToString("MM"))
+        //                .Replace("dd", DateTime.Now.ToString("dd"))
+        //                .Replace("WW", CultureInfo.InvariantCulture.Calendar
+        //                    .GetWeekOfYear(DateTime.Now, CalendarWeekRule.FirstDay, DayOfWeek.Sunday)
+        //                    .ToString("D2"));
+        //        }
+        //        else
+        //        {
+        //            configMapping.TryGetValue(raw, out result);
+        //        }
+
+        //        replacements[fullKey] = result ?? "";
+        //    }
+
+        //    return replacements.Aggregate(template, (current, pair) => current.Replace(pair.Key, pair.Value));
+        //}
 
 
 
