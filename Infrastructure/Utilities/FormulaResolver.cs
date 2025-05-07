@@ -30,6 +30,9 @@ namespace Infrastructure.Utilities
                     case "Today":
                         dict[$"@{varName}"] = DateTime.Now.ToString("yyMMdd");
                         break;
+                    case "YYMM":
+                        dict[$"@{varName}"] = DateTime.Now.ToString("yyMM");
+                        break;
                     case "Customer":
                         dict[$"@{varName}"] = config.Customer ?? "";
                         break;
@@ -71,6 +74,12 @@ namespace Infrastructure.Utilities
                 return $"{field} LIKE '{combined}%'";
             });
 
+            // EndsWith(x) → LIKE '%x'
+            sql = Regex.Replace(sql, @"(\w+)\.EndsWith\(\s*'([^']+)'\s*\)", "$1 LIKE '%$2'");
+
+            // Contains(x) → LIKE '%x%'
+            sql = Regex.Replace(sql, @"(\w+)\.Contains\(\s*'([^']+)'\s*\)", "$1 LIKE '%$2%'");
+
             // Field == 'Value' → Field = 'Value'
             sql = Regex.Replace(sql, @"(\w+)\s*==\s*'([^']+)'", "$1 = '$2'");
 
@@ -82,6 +91,8 @@ namespace Infrastructure.Utilities
                 return $"{field} = '{(context.TryGetValue(var, out var val) ? val : "")}'";
             });
 
+            sql = Regex.Replace(sql, @"(\w+)\s*==\s*(\d+)", "$1 = $2");
+
             // Length → CHAR_LENGTH
             sql = sql.Replace("TILEID.Length", "CHAR_LENGTH(TILEID)");
 
@@ -92,6 +103,15 @@ namespace Infrastructure.Utilities
                 foreach (var kv in context)
                     val = val.Replace(kv.Key, kv.Value);
                 return $"CreateDate >= '{val}'";
+            });
+
+            // CompareTo(x) = 0 → = x
+            sql = Regex.Replace(sql, @"CreateDate\.CompareTo\((.*?)\)\s*=\s*0", match =>
+            {
+                string val = match.Groups[1].Value;
+                foreach (var kv in context)
+                    val = val.Replace(kv.Key, kv.Value);
+                return $"CreateDate = '{val}'";
             });
 
             foreach (var kv in context)
