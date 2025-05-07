@@ -18,7 +18,7 @@ namespace UnitTest.LaserMarking
 			string availableChars = "ABCXYZ0123456789";
 			var generator = new NewSNGenerator(availableChars);
 
-			string newSN = generator.GenerateSN(lastSN, "", true); // 呼叫 NormalNewSN
+			string newSN = generator.GenerateSN(lastSN, "", true,4); // 呼叫 NormalNewSN
 
 			Assert.Equal("0002", newSN); // 驗證結果
 		}
@@ -31,7 +31,7 @@ namespace UnitTest.LaserMarking
 			string availableChars = "ABCXYZ0123456789";
 			var generator = new NewSNGenerator(availableChars);
 
-			string newSN = generator.GenerateSN(lastSN, "", true);
+			string newSN = generator.GenerateSN(lastSN, "", true, 3);
 
 			Assert.Equal("A2XA", newSN); // 驗證結果
 		}
@@ -44,7 +44,7 @@ namespace UnitTest.LaserMarking
 			string charSet = "ABCXYZ0123456789";
 			var generator = new NewSNGenerator(charSet);
 
-			string newSN = generator.GenerateSN(lastSN, "A00", true); // 呼叫 A00NewSN
+			string newSN = generator.GenerateSN(lastSN, "A00", true, 2); // 呼叫 A00NewSN
 
 			Assert.Equal("A01", newSN); // 預期結果
 		}
@@ -57,7 +57,7 @@ namespace UnitTest.LaserMarking
 			string charSet = "ABCXYZ0123456789";
 			var generator = new NewSNGenerator(charSet);
 
-			string newSN = generator.GenerateSN(lastSN, "A00", true);
+			string newSN = generator.GenerateSN(lastSN, "A00", true, 2);
 
 			Assert.Equal("AC0", newSN); // 預期結果
 		}
@@ -70,7 +70,7 @@ namespace UnitTest.LaserMarking
 			string charSet = "ABCXYZ0123456789";
 			var generator = new NewSNGenerator(charSet);
 
-			string newSN = generator.GenerateSN(lastSN, "AA00", true); // 呼叫 AA00NewSN
+			string newSN = generator.GenerateSN(lastSN, "AA00", true, 3); // 呼叫 AA00NewSN
 
 			Assert.Equal("AA-01", newSN); // 預期結果
 		}
@@ -83,7 +83,7 @@ namespace UnitTest.LaserMarking
 			string charSet = "ABCXYZ0123456789";
 			var generator = new NewSNGenerator(charSet);
 
-			string newSN = generator.GenerateSN(lastSN, "AA00", true);
+			string newSN = generator.GenerateSN(lastSN, "AA00", true, 3);
 
 			Assert.Equal("AB-01", newSN); // 預期結果
 		}

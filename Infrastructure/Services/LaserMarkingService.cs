@@ -281,8 +281,8 @@ namespace Infrastructure.Services
 
             var lotCreators = new List<LotCreator>();
             var existingTileIds = new HashSet<string>();
+            
 
-        
 
 
             //--------自動替換 selectLastsn
@@ -296,73 +296,77 @@ namespace Infrastructure.Services
       
             string tilePrefix = "";
 
-            //if (customerConfig.UseConfigTileIdPrefix == "Y")
-            //{
-            //    // 走用 Config TileID 自動產生的方式
-            //    //tilePrefix = BuildTileIdPrefixFromConfig(config, request.LotNo, customerConfig.UseDateCodeMapping == "Y");
-            //    //tilePrefix = BuildTileIdPrefixFromConfig(
-            //    //        config,
-            //    //        request.LotNo,
-            //    //        customerConfig.UseDateCodeMapping == "Y" ? BuildFullDateCodeMapping(config) : new Dictionary<string, string>()
-            //    //    );
-            //    tilePrefix = BuildTileIdPrefixFromConfig(
-            //        config,
-            //        request.LotNo,
-            //        customerConfig.UseDateCodeMapping == "Y",
-            //        BuildFullDateCodeMapping(config)
-            //    );
-
-
-            //}
-            //else
-            //{
-            //    // 保持原本的
-            //    tileIdParts = config.TileId?.Split(',') ?? Array.Empty<string>();
-            //    tilePrefix = tileIdParts.FirstOrDefault()?.Trim() ?? "";
-            //}
-
-
             var configMappingL = BuildFullDateCodeMapping(config);
             // 4. 替換 SQL 條件中 {@...} 的所有變數
             //string whereClause = BuildWhereClause(customerConfig.SelectLastSn, configMappingL, tilePrefix);
             //string whereClause = BuildWhereClause(customerConfig.SelectLastSn, configMappingL, tilePrefix, customerConfig);
             //string whereClause = BuildWhereClause(config, customerConfig, tilePrefix);
 
-            var usedVars = FormulaResolver.ExtractUsedVariables(customerConfig.LastSnWhereEvalFormula);
-            var context = FormulaResolver.BuildVariablesFromUsage(usedVars, config, request);
-            var whereClause = FormulaResolver.ConvertFormulaToSql(customerConfig.LastSnWhereEvalFormula, context);
-
-
-        
-
-
-
-            Product? lastProduct = null;
+            //var usedVars = FormulaResolver.ExtractUsedVariables(customerConfig.LastSnWhereEvalFormula);
+            //var context = FormulaResolver.BuildVariablesFromUsage(usedVars, config, request);
+            //var whereClause = FormulaResolver.ConvertFormulaToSql(customerConfig.LastSnWhereEvalFormula, context);
+            
+            string whereClause = "";
             if (!string.IsNullOrWhiteSpace(customerConfig.LastSnWhereEvalFormula))
             {
+                var usedVars = FormulaResolver.ExtractUsedVariables(customerConfig.LastSnWhereEvalFormula);
+                var context = FormulaResolver.BuildVariablesFromUsage(usedVars, config, request);
+                whereClause = FormulaResolver.ConvertFormulaToSql(customerConfig.LastSnWhereEvalFormula, context);
+            }
+            Product? lastProduct = null;
+            string lastSN = ""; // 預設為空字串，代表將從 A00 開始
+            string originalLastSN = null; // 用於後續傳給背面
+            if (isBackSide)
+            {
+                // ✅ 背面永遠使用正面提供的值（即使是空字串），不再查資料庫
+                lastSN = initialLastSN ?? "";
+                originalLastSN = lastSN;
+            }
+            else if (!string.IsNullOrWhiteSpace(whereClause))
+            {
                 string query = $@"
-                SELECT TileID, Quantity, TileIDEnd, LastSN
-                FROM Product
-                {whereClause}
-                LIMIT 1";
-
+                    SELECT TileID, Quantity, TileIDEnd, LastSN
+                    FROM Product
+                    {whereClause}
+                    LIMIT 1";
                 lastProduct = await repository.QueryFirstOrDefaultAsync<Product>(query);
-
                 if (lastProduct != null &&
                     !string.IsNullOrEmpty(lastProduct.TileIDEnd) &&
                     string.IsNullOrEmpty(lastProduct.LastSN))
                 {
                     throw new Exception($"{query} 查詢到 TileIDEnd 有值但 LastSN 為空，請通知 IT 人員處理！");
                 }
+                lastSN = lastProduct?.LastSN ?? ""; // 若查無值，也預設為空字串
+                originalLastSN = lastSN;
             }
 
+                
+            //if (!string.IsNullOrWhiteSpace(whereClause) && initialLastSN == null )
+            //{
+            //    string query = $@"
+            //        SELECT TileID, Quantity, TileIDEnd, LastSN
+            //        FROM Product
+            //        {whereClause}
+            //        LIMIT 1";
 
-            // 1.2 取得 SN 長度；若查無 LastSN 則以 '0' * 長度填補
+            //    lastProduct = await repository.QueryFirstOrDefaultAsync<Product>(query);
+
+            //    if (lastProduct != null &&
+            //        !string.IsNullOrEmpty(lastProduct.TileIDEnd) &&
+            //        string.IsNullOrEmpty(lastProduct.LastSN))
+            //    {
+            //        throw new Exception($"{query} 查詢到 TileIDEnd 有值但 LastSN 為空，請通知 IT 人員處理！");
+            //    }
+            //}
+                        // 1.2 取得 SN 長度；若查無 LastSN 則以 '0' * 長度填補
             int snLength = customerConfig.SnLength ?? 5; // 預設值 5
             //string lastSN = lastProduct?.LastSN ?? new string('0', snLength);
             //string lastSN = initialLastSN ?? lastProduct?.LastSN ?? "";
-            string lastSN = initialLastSN ?? lastProduct?.LastSN ?? new string('0', snLength);
-            string originalLastSN = lastSN;
+            //string lastSN = initialLastSN ?? lastProduct?.LastSN;
+            //string lastSN = initialLastSN ?? lastProduct?.LastSN ?? new string('0', snLength);
+
+            //string originalLastSN = lastSN;
+            //string originalLastSN = null;
             //string originalLastSN = initialLastSN ?? lastProduct?.LastSN ?? "";
 
             // 5. 決定起始 LastSN
@@ -392,131 +396,12 @@ namespace Infrastructure.Services
             //var snGenerator = new NewSNGenerator(customerConfig.CharacterEncode);
             var snGenerator = new NewSNGenerator(availableChars);
 
-
-            //--------------------------------------------------------------------------------------------------------------------
-            // 4.2.1 三層迴圈：第一層為總筆數編碼迴圈
-            //        for (int i = 0; i < encodeCount; i++)
-            //        {
-
-            //// 4.2.2 每次迴圈初始化 tileTexts（對應 TileText01~05）
-            //var tileTexts = new List<string>();
-            //var cellTexts = new List<string>();
-
-            //// 4.2.3 第二層迴圈：遍歷每一個欄位（最多五個欄位）
-            //foreach (var tileText in tileTextFields)
-            //            {
-            //                if (string.IsNullOrEmpty(tileText)) continue;
-
-            //	// 4.2.3 拆解欄位內容：以逗號分隔成轉換元素陣列
-            //	var elements = tileText.Split(',');
-            //                var convertedElements = new List<string>();
-
-            //	// 4.2.4 第三層迴圈：處理每個轉換元素
-            //	foreach (var element in elements)
-            //                {
-            //                    string convertedValue = null;
-
-
-            //		// 4.1.5.1 處理流水號遞增（SN1/GSC1）呼叫 SN 產生器
-            //		if (element == "SN1" || element == "GSC1")
-            //                    {
-            //                        convertedValue = snGenerator.GenerateSN(lastSN, customerConfig.NewSnPattern, true);
-            //                        lastSN = convertedValue; // 更新 lastSN
-            //                    }
-            //                    // 4.1.5 處理不遞增的流水號（SN/GSC）
-            //                    else if (element == "SN" || element == "GSC")
-            //                    {
-            //                        convertedValue = snGenerator.GenerateSN(lastSN, customerConfig.NewSnPattern, false);
-            //                    }
-            //		// 4.1.3 與 4.1.4 處理字串與日期轉換邏輯
-            //		else
-            //		{
-            //                        // 4.1.3 字串轉換
-            //                        //convertedValue = StringCodeMapping.Convert(element, request.LotNo) ??// 6.1 ~ 6.4
-            //                        //				 DateCodeMapping.Convert(element, configMapping) ??// 7.1 ~ 7.10
-            //                        //				 element; // 保留原始值
-            //                        //convertedValue = StringCodeMapping.Convert(element, request.LotNo)
-            //                        //            ?? (configMapping.TryGetValue(element, out var val) ? val : element);
-            //                        //var test = StringCodeMapping.Convert("YC", request.LotNo);  // 看會不會回傳 "YC"
-
-            //                        string cleaned = element?.Trim();
-            //                        //convertedValue = StringCodeMapping.Convert(cleaned, request.LotNo)
-            //                        //                  ?? (configMapping.TryGetValue(cleaned, out var val) ? val : cleaned);
-            //                        if (cleaned == "YC" || cleaned == "MC" || cleaned == "DC")
-            //                        {
-            //                            // 日期代碼直接使用 configMapping 對映
-            //                            convertedValue = configMapping.TryGetValue(cleaned, out var val) ? val : cleaned;
-            //                        }
-            //                        else
-            //                        {
-            //                            // 先走 StringCodeMapping，若無結果才查對映表
-            //                            convertedValue = StringCodeMapping.Convert(cleaned, request.LotNo)
-            //                                              ?? (configMapping.TryGetValue(cleaned, out var val) ? val : cleaned);
-            //                        }
-
-            //                    }
-            //                    // 4.2.4 結合轉換結果
-            //                    convertedElements.Add(convertedValue);
-
-            //                }
-            //	//tileIds.Add(string.Join("", convertedElements));
-            //	// 4.1.6 合併為最終字串（欄位值）
-            //	tileTexts.Add(string.Join("", convertedElements));
-            //}
-
-            //            //檢查處理celltext
-            //            // ✅ 儲存 tileText 初始 SN 狀態供 CellText 使用
-            //            string cellStartSN = lastSN;
-
-            //            for (int cellIndex = 0; cellIndex < cellTextFields.Count; cellIndex++)
-            //            {
-            //                var cellText = cellTextFields[cellIndex];
-            //                //string cellinsideLastSn = cellLastSN
-            //                if (string.IsNullOrEmpty(cellText)) continue;
-
-            //                var elements = cellText.Split(',');
-            //                var convertedElements = new List<string>();
-            //                string cellLocalSN = cellStartSN;
-
-            //                foreach (var element in elements)
-            //                {
-            //                    string cleaned = element?.Trim();
-            //                    string convertedValue = null;
-
-            //                    if (cleaned == "SN" || cleaned == "GSC")
-            //                    {
-            //                        // 🔁 使用對應的 TileText
-            //                        //convertedValue = tileTexts.ElementAtOrDefault(cellIndex) ?? "";
-            //                        convertedValue = snGenerator.GenerateSN(cellLocalSN, customerConfig.NewSnPattern, true);
-
-            //                    }
-            //                    else if (cleaned == "SN1" || cleaned == "GSC1")
-            //                    {
-            //                        convertedValue = snGenerator.GenerateSN(cellLocalSN, customerConfig.NewSnPattern, true);
-            //                        cellLocalSN = convertedValue;
-            //                    }
-            //                    else if (cleaned == "YC" || cleaned == "MC" || cleaned == "DC")
-            //                    {
-            //                        convertedValue = configMapping.TryGetValue(cleaned, out var val) ? val : cleaned;
-            //                    }
-            //                    else
-            //                    {
-            //                        convertedValue = StringCodeMapping.Convert(cleaned, request.LotNo)
-            //                                          ?? (configMapping.TryGetValue(cleaned, out var val) ? val : cleaned);
-            //                    }
-
-            //                    convertedElements.Add(convertedValue);
-            //                }
-
-            //                cellTexts.Add(string.Join("", convertedElements));
-            //            }
-            //--------------------------------------------------------------------------------------------------------------------
-
             //20250502 修改為tileText01做完馬上接著做 CellText01
             for (int i = 0; i < encodeCount; i++)
             {
                 var tileTexts = new List<string>();
                 var cellTexts = new List<string>();
+                bool isFirstPiece = (i == 0);
 
                 // ✅ 同步初始 SN 給 tileText 與 cellText 使用
                 string currentSN = lastSN;
@@ -537,17 +422,21 @@ namespace Infrastructure.Services
                             string convertedValue = null;
                             if (element == "SN1" || element == "GSC1")
                             {
-                                convertedValue = snGenerator.GenerateSN(currentSN, customerConfig.NewSnPattern, true);
+                                convertedValue = snGenerator.GenerateSN(currentSN, customerConfig.NewSnPattern, true, customerConfig.SnLength ?? 3);
                                 currentSN = convertedValue;
+                                //if (string.IsNullOrEmpty(originalLastSN) && !string.IsNullOrEmpty(convertedValue))
+                                //{
+                                //    originalLastSN = convertedValue;
+                                //}
                             }
                             else if (element == "SN" || element == "GSC")
                             {
-                                convertedValue = snGenerator.GenerateSN(currentSN, customerConfig.NewSnPattern, false);
+                                convertedValue = snGenerator.GenerateSN(currentSN, customerConfig.NewSnPattern, false, customerConfig.SnLength ?? 3);
                             }
                             else
                             {
                                 string cleaned = element?.Trim();
-                                if (cleaned == "YC" || cleaned == "MC" || cleaned == "DC")
+                                if (cleaned == "YC" || cleaned == "MC" || cleaned == "DC" || cleaned == "YY" || cleaned == "MM" || cleaned == "DD" || cleaned == "WW")
                                 {
                                     convertedValue = configMapping.TryGetValue(cleaned, out var val) ? val : cleaned;
                                 }
@@ -576,14 +465,14 @@ namespace Infrastructure.Services
 
                             if (cleaned == "SN" || cleaned == "GSC")
                             {
-                                convertedValue = snGenerator.GenerateSN(currentSN, customerConfig.NewSnPattern, false);
+                                convertedValue = snGenerator.GenerateSN(currentSN, customerConfig.NewSnPattern, false, customerConfig.SnLength ?? 3);
                             }
                             else if (cleaned == "SN1" || cleaned == "GSC1")
                             {
-                                convertedValue = snGenerator.GenerateSN(currentSN, customerConfig.NewSnPattern, true);
+                                convertedValue = snGenerator.GenerateSN(currentSN, customerConfig.NewSnPattern, true, customerConfig.SnLength ?? 3);
                                 currentSN = convertedValue;
                             }
-                            else if (cleaned == "YC" || cleaned == "MC" || cleaned == "DC")
+                            else if (cleaned == "YC" || cleaned == "MC" || cleaned == "DC" || cleaned == "YY" || cleaned == "MM" || cleaned == "DD" || cleaned == "WW")
                             {
                                 convertedValue = configMapping.TryGetValue(cleaned, out var val) ? val : cleaned;
                             }
