@@ -108,7 +108,7 @@ namespace Infrastructure.Services
 
 			var producedTileSet = records.Select(x => x.TileId).ToHashSet();
 			var allowMissingWork = rules.Any(r => r.EnableMissingWork == "Y");
-			if (request.DisableMissingWorkFlag == 1)
+			if (request.DisableMissingWork == 1)
 			{
 				allowMissingWork = false;
 			}
