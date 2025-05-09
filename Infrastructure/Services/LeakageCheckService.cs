@@ -28,15 +28,16 @@ namespace Infrastructure.Services
 		{
 			_logger.LogInformation($"[LeakageCheck] Request - lotno: {request.Lotno}, opno: {request.Opno}, deviceid: {request.Deviceid}, diff: {request.Diff}");
 
-			var (repoDbo, repoCim) = RepositoryHelper.CreateRepositories(request.Environment, _repositoryFactory);
-			var (stepsToQuery, deviceIdsToQuery) = await new LotTileCheckService(_repositoryFactory).DataQueryModeAsync(repoCim, request.Opno, request.Deviceid);
+			var (repoDbo, repoCim) = RepositoryHelper.CreateRepositories(request.Environment, _repositoryFactory);			
+			var (opnosToQuery, deviceIdsToQuery) = await OpnoQueryHelper.ResolveQueryModeAsync(repoCim, request.Opno, request.Deviceid);
+
 
 			// 新增：查詢規則表決定最大天數
 			var rules = (await repoCim.QueryAsync<RuleCheckDefinition>(
 				@"SELECT DAYSRANGE 
 				  FROM ARGOAPILOTTILERULECHECK 
-				  WHERE STEP IN :steps",
-				new { steps = stepsToQuery })).ToList();
+				  WHERE OPNO IN :opnos",
+				new { opnos = opnosToQuery })).ToList();
 			var maxDays = rules.Max(r => r.DaysRange ?? 90);
 
 			var process = await DeviceProcessHelper.GetProcessByDeviceIdAsync(repoDbo, request.Deviceid);
@@ -86,7 +87,7 @@ namespace Infrastructure.Services
 			var records = (await repoDbo.QueryAsync<LeakageAnomalyDto>(sql, new
 			{
 				lotno = request.Lotno,
-				steps = stepsToQuery,
+				steps = opnosToQuery,
 				deviceids = deviceIdsToQuery,
 				daysRange = maxDays,
 				diff = request.Diff
@@ -108,13 +109,13 @@ namespace Infrastructure.Services
 			_logger.LogInformation($"[LeakageSelect] Request - lotno: {request.Lotno}, opno: {request.Opno}, deviceid: {request.Deviceid}");
 
 			var (repoDbo, repoCim) = RepositoryHelper.CreateRepositories(request.Environment, _repositoryFactory);
-			var (stepsToQuery, deviceIdsToQuery) = await new LotTileCheckService(_repositoryFactory).DataQueryModeAsync(repoCim, request.Opno, request.Deviceid);
+			var (opnosToQuery, deviceIdsToQuery) = await OpnoQueryHelper.ResolveQueryModeAsync(repoCim, request.Opno, request.Deviceid);
 
 			var rules = (await repoCim.QueryAsync<RuleCheckDefinition>(
 				@"SELECT DAYSRANGE 
 				  FROM ARGOAPILOTTILERULECHECK 
-				  WHERE STEP IN :steps",
-				new { steps = stepsToQuery })).ToList();
+				  WHERE OPNO IN :opnos",
+				new { opnos = opnosToQuery })).ToList();
 			var maxDays = rules.Max(r => r.DaysRange ?? 90);
 
 			var process = await DeviceProcessHelper.GetProcessByDeviceIdAsync(repoDbo, request.Deviceid);
@@ -134,7 +135,7 @@ namespace Infrastructure.Services
 			var rows = (await repoDbo.QueryAsync<LeakageRawDataDto>(sql, new
 			{
 				lotno = request.Lotno,
-				steps = stepsToQuery,
+				opno = opnosToQuery,
 				deviceids = deviceIdsToQuery,
 				daysRange = maxDays
 			}))?.ToList();
