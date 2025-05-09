@@ -16,6 +16,7 @@ using Core.Entities.TeamsAlarm;
 using Core.Entities.LotTileCheck;
 using Core.Entities.Recipe2DCodeGenerator;
 using System;
+using Core.Entities.YieldRecordData;
 
 namespace CimAPI.Controllers
 {
@@ -417,6 +418,40 @@ namespace CimAPI.Controllers
 			}
 		}
 
+		/// <summary>
+		/// 讀取良率記錄檔案 API
+		/// </summary>
+		/// <remarks>
+		/// <para>
+		/// {
+		///   "environment": "Production",
+		///   "action": "SELECT",
+		///   "productno": "1DP000000026",
+		///   "lotno": "WB2024300494-A00003"
+		/// }
+		/// </para>
+		/// </remarks>
+		[Route("[controller]/YieldRecordData")]
+		[HttpPost]
+		public async Task<IActionResult> YieldRecordData([FromBody] YieldRecordDataRequest request)
+		{
+			if (request == null ||
+				string.IsNullOrWhiteSpace(request.Environment) ||
+				string.IsNullOrWhiteSpace(request.Action) ||
+				string.IsNullOrWhiteSpace(request.ProductNo) ||
+				string.IsNullOrWhiteSpace(request.LotNo))
+			{
+				return BadRequest(ApiReturn<string>.Failure("參數不完整"));
+			}
+
+			if (request.Action == "SELECT")
+			{
+				var result = await _facade.LoadYieldRecordDataAsync(request);
+				return result.Result == "Ok" ? Ok(result) : BadRequest(result);
+			}
+
+			return BadRequest(ApiReturn<string>.Failure("不支援的 Action"));
+		}
 
 
 

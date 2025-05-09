@@ -8,7 +8,7 @@
 		public string LotNo { get; set; }
 		public string Step { get; set; }  // 改成多個 Step
 		public string DeviceId { get; set; }  // 改成多個 deviceid
-		public int? DisableMissingWorkFlag { get; set; } // null or 1
+		public int? DisableMissingWork { get; set; } // null or 1
 
 
 	}

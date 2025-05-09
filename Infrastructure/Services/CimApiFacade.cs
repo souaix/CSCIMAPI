@@ -7,6 +7,7 @@ using Core.Entities.MailSender;
 using Core.Entities.TeamsAlarm;
 using Core.Entities.LotTileCheck;
 using Core.Entities.Recipe2DCodeGenerator;
+using Core.Entities.YieldRecordData;
 
 namespace Infrastructure.Services
 {
@@ -19,6 +20,7 @@ namespace Infrastructure.Services
 		private readonly IMailSenderService _mailSenderService;
 		private readonly ILotTileCheckService _lotTileCheckService;
 		private readonly IRecipe2DCodeService _recipe2DCodeService;
+		private readonly IYieldRecordDataService _yieldRecordDataService;
 
 		public CimApiFacade(
 			IInsertWipDataService insertWipDataService,
@@ -27,7 +29,8 @@ namespace Infrastructure.Services
 			ITeamsAlarmService teamsAlarmService,
 			IMailSenderService mailSenderService,
 			ILotTileCheckService lotTileCheckService,
-			IRecipe2DCodeService recipe2DCodeService)
+			IRecipe2DCodeService recipe2DCodeService,
+			IYieldRecordDataService yieldRecordDataService)
 		{
 			_insertWipDataService = insertWipDataService;
 			_laserMarkingService = laserMarkingService;
@@ -36,6 +39,7 @@ namespace Infrastructure.Services
 			_mailSenderService = mailSenderService;
 			_lotTileCheckService = lotTileCheckService;
 			_recipe2DCodeService = recipe2DCodeService;
+			_yieldRecordDataService = yieldRecordDataService;
 		}
 
 		public Task<ApiReturn<int>> InsertWipDataAsync(string environment, string tableName, TblMesWipData_Record request)
@@ -87,6 +91,12 @@ namespace Infrastructure.Services
 		{
 			return _recipe2DCodeService.Save2DCodeAsync(request);
 		}
+
+		public Task<ApiReturn<YieldRecordDataResult>> LoadYieldRecordDataAsync(YieldRecordDataRequest request)
+		{
+			return _yieldRecordDataService.LoadYieldRecordDataAsync(request);
+		}
+
 
 	}
 }
