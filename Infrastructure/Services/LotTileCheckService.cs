@@ -23,7 +23,7 @@ namespace Infrastructure.Services
 			var result = new List<TileCheckResultDto>();
 
 			//解析查詢規則(S1~S4)			
-			var (opnosToQuery, deviceIdsToQuery) = await OpnoQueryHelper.ResolveQueryModeAsync(repoCim, request.Opno, request.DeviceId);
+			var (opnosToQuery, deviceIdsToQuery) = await OpnoQueryModelHelper.ResolveQueryModeAsync(repoCim, request.Opno, request.DeviceId);
 
 
 			var rules = (await repoCim.QueryAsync<RuleCheckDefinition>(

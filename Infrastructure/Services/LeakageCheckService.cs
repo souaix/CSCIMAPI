@@ -29,7 +29,7 @@ namespace Infrastructure.Services
 			_logger.LogInformation($"[LeakageCheck] Request - lotno: {request.Lotno}, opno: {request.Opno}, deviceid: {request.Deviceid}, diff: {request.Diff}");
 
 			var (repoDbo, repoCim) = RepositoryHelper.CreateRepositories(request.Environment, _repositoryFactory);			
-			var (opnosToQuery, deviceIdsToQuery) = await OpnoQueryHelper.ResolveQueryModeAsync(repoCim, request.Opno, request.Deviceid);
+			var (opnosToQuery, deviceIdsToQuery) = await OpnoQueryModelHelper.ResolveQueryModeAsync(repoCim, request.Opno, request.Deviceid);
 
 
 			// 新增：查詢規則表決定最大天數
@@ -109,7 +109,7 @@ namespace Infrastructure.Services
 			_logger.LogInformation($"[LeakageSelect] Request - lotno: {request.Lotno}, opno: {request.Opno}, deviceid: {request.Deviceid}");
 
 			var (repoDbo, repoCim) = RepositoryHelper.CreateRepositories(request.Environment, _repositoryFactory);
-			var (opnosToQuery, deviceIdsToQuery) = await OpnoQueryHelper.ResolveQueryModeAsync(repoCim, request.Opno, request.Deviceid);
+			var (opnosToQuery, deviceIdsToQuery) = await OpnoQueryModelHelper.ResolveQueryModeAsync(repoCim, request.Opno, request.Deviceid);
 
 			var rules = (await repoCim.QueryAsync<RuleCheckDefinition>(
 				@"SELECT DAYSRANGE 
