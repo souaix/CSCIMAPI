@@ -3,7 +3,7 @@ using Core.Interfaces;
 
 namespace Infrastructure.Utilities
 {
-	public static class OpnoQueryHelper
+	public static class OpnoQueryModelHelper
 	{
 		public static async Task<(List<string> Steps, List<string> DeviceIds)> ResolveQueryModeAsync(
 			IRepository repo, string opno, string deviceId)
