@@ -22,15 +22,16 @@ namespace Infrastructure.Services
 			var (repoDbo, repoCim) = RepositoryHelper.CreateRepositories(request.Environment, _repositoryFactory);
 			var result = new List<TileCheckResultDto>();
 
-			//解析查詢規則(S1~S4)
-			var (stepsToQuery, deviceIdsToQuery) = await DataQueryModeAsync(repoCim, request.Step, request.DeviceId);
+			//解析查詢規則(S1~S4)			
+			var (opnosToQuery, deviceIdsToQuery) = await OpnoQueryHelper.ResolveQueryModeAsync(repoCim, request.Opno, request.DeviceId);
+
 
 			var rules = (await repoCim.QueryAsync<RuleCheckDefinition>(
-				@"SELECT STEP, DEVICEIDS, EVALFORMULA AS EvalFormula, REASON, PRIORITY, DAYSRANGE, ENABLEMISSINGWORK, ENABLEMIXLOT, ENABLENG
+				@"SELECT OPNO, DEVICEIDS, EVALFORMULA AS EvalFormula, REASON, PRIORITY, DAYSRANGE, ENABLEMISSINGWORK, ENABLEMIXLOT, ENABLENG
 				  FROM ARGOAPILOTTILERULECHECK 
-				  WHERE STEP IN :steps 
+				  WHERE OPNO IN :opnos 
 				  ORDER BY PRIORITY",
-				new { steps = stepsToQuery })).ToList();
+				new { opnos = opnosToQuery })).ToList();
 
 			if (!rules.Any())
 				return ApiReturn<List<TileCheckResultDto>>.Warning("無對應規則", result);
@@ -68,7 +69,7 @@ namespace Infrastructure.Services
 			var unionSql = new StringBuilder();
 			var parameters = new DynamicParameters();
 			parameters.Add("lotno", request.LotNo);
-			parameters.Add("steps", stepsToQuery);
+			parameters.Add("opnos", opnosToQuery);
 			parameters.Add("days", maxDays);
 
 			int idx = 0;
@@ -90,7 +91,7 @@ namespace Infrastructure.Services
 					   ROW_NUMBER() OVER (PARTITION BY TILEID ORDER BY RECORDDATE DESC) AS RN
 				FROM TBLMESWIPDATA_{process}
 				WHERE LOTNO = :lotno
-				  AND STEP IN :steps
+				  AND STEP IN :opnos
 				  AND DEVICEID IN :{paramName}
 				  AND TILEID IS NOT NULL
 				  AND RECORDDATE >= TRUNC(SYSDATE) - :days
@@ -285,82 +286,6 @@ namespace Infrastructure.Services
 			return data.ToList();
 		}
 
-
-		//此段為查詢設定表，依站點決定要走單站單機或是單站多機, 多站單機或是多站多機
-		public async Task<(List<string> Steps, List<string> DeviceIds)> DataQueryModeAsync(
-			IRepository repo, string step, string deviceId)
-		{
-			// 查詢模式與群組
-			var modeRow = await repo.QueryFirstOrDefaultAsync<(string QueryMode, string StepGroup)>(
-				@"SELECT QUERYMODE, STEPGROUP 
-          FROM ARGOAPILOTTILESTEPMODE 
-          WHERE STEP = :step", new { step });
-
-			if (modeRow.QueryMode == null)
-			{
-				throw new Exception("未設定黑白名單站點對應邏輯，請洽詢工程師");
-			}
-
-			var queryMode = modeRow.QueryMode;
-			var stepGroup = modeRow.StepGroup;
-
-			List<string> steps = new();
-			List<string> deviceIds = new();
-
-			switch (queryMode)
-			{
-				case "S1": // 單站 + 單機
-					steps.Add(step);
-					deviceIds.Add(deviceId);
-					break;
-
-				case "S2": // 單站 + 多機
-					steps.Add(step);
-					var rulesS2 = await repo.QueryAsync<string>(
-						@"SELECT DISTINCT DEVICEIDS 
-                  FROM ARGOAPILOTTILERULECHECK 
-                  WHERE STEP = :step", new { step });
-					deviceIds = rulesS2
-						.SelectMany(s => s.Split(','))
-						.Select(x => x.Trim())
-						.Distinct()
-						.ToList();
-					break;
-
-				case "S3": // 同群組多站 + 單機
-					steps = (await repo.QueryAsync<string>(
-						@"SELECT STEP 
-                  FROM ARGOAPILOTTILESTEPMODE 
-                  WHERE STEPGROUP = :stepgroup", new { stepgroup = stepGroup }))
-						.ToList();
-					deviceIds.Add(deviceId);
-					break;
-
-				case "S4": // 同群組多站 + 多機
-					steps = (await repo.QueryAsync<string>(
-						@"SELECT STEP 
-                  FROM ARGOAPILOTTILESTEPMODE 
-                  WHERE STEPGROUP = :stepgroup", new { stepgroup = stepGroup }))
-						.ToList();
-
-					var rulesS4 = await repo.QueryAsync<string>(
-						@"SELECT DISTINCT DEVICEIDS 
-                  FROM ARGOAPILOTTILERULECHECK 
-                  WHERE STEP IN :steps", new { steps });
-
-					deviceIds = rulesS4
-						.SelectMany(s => s.Split(','))
-						.Select(x => x.Trim())
-						.Distinct()
-						.ToList();
-					break;
-
-				default:
-					throw new Exception($"未知的查詢模式：{queryMode}");
-			}
-
-			return (steps, deviceIds);
-		}
 
 	}
 }

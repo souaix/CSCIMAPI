@@ -6,7 +6,7 @@
 		public string Environment { get; set; }
 		public string Action { get; set; }
 		public string LotNo { get; set; }
-		public string Step { get; set; }  // 改成多個 Step
+		public string Opno { get; set; }  // 改成多個 Step
 		public string DeviceId { get; set; }  // 改成多個 deviceid
 		public int? DisableMissingWork { get; set; } // null or 1
 
@@ -24,7 +24,7 @@
 
 	public class RuleCheckDefinition
 	{
-		public string Step { get; set; }
+		public string Opno { get; set; }
 		public string DeviceIds { get; set; }
 		public string EvalFormula { get; set; }
 		public string Reason { get; set; }

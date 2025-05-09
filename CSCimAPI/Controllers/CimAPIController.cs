@@ -276,7 +276,7 @@ namespace CimAPI.Controllers
 		///  "environment": "Production",
 		///  "action": "CHECK",
 		///  "lotno": "WB2024C00093-A00004",
-		///  "step" : "BTS00001",
+		///  "opno" : "BTS00001",
 		///  "deviceid" : "LK-004"
 		///}
 		///</para>
@@ -286,7 +286,7 @@ namespace CimAPI.Controllers
 		///  "environment": "Production",
 		///  "action": "CHECK",
 		///  "lotno": "WB2025100042-A00006",
-		///  "step" : "BTS00091",
+		///  "opno" : "BTS00091",
 		///  "deviceid" : "FT-044"
 		///}
 		///</para>
@@ -296,7 +296,7 @@ namespace CimAPI.Controllers
 		///  "environment": "Production",
 		///  "action": "CHECK",
 		///  "lotno": "WB2024C00075-A00040",
-		///  "step" : "BTS000D1",
+		///  "opno" : "BTS000D1",
 		///  "deviceid" : "AS-004"
 		///}
 		///</para>
@@ -306,7 +306,7 @@ namespace CimAPI.Controllers
 		///  "environment": "Production",
 		///  "action": "CHECK",
 		///  "lotno": "WB2024C00158-A00002",
-		///  "step" : "BTS00071",
+		///  "opno" : "BTS00071",
 		///  "deviceid" : "MT-007"
 		///}
 		///</para>
@@ -316,7 +316,7 @@ namespace CimAPI.Controllers
 		///  "environment": "Production",
 		///  "action": "CHECK",
 		///  "lotno": "WB2024A00196-B00002",
-		///  "step" : "BTS000D1",
+		///  "opno" : "BTS000D1",
 		///  "deviceid" : ""
 		///}
 		///</para>
@@ -326,7 +326,7 @@ namespace CimAPI.Controllers
 		///  "environment": "Production",
 		///  "action": "CHECK",
 		///  "lotno": "WB2025200047-B00020",
-		///  "step" : "BTS00071",
+		///  "opno" : "BTS00071",
 		///  "deviceid" : "AT-001"
 		///}
 		///</para>				
@@ -336,7 +336,7 @@ namespace CimAPI.Controllers
 		///  "environment": "Production",
 		///  "action": "CHECK",
 		///  "lotno": "WB2024C00270-A00288",
-		///  "step" : "BTS00061",
+		///  "opno" : "BTS00061",
 		///  "deviceid" : "LS-025"
 		///}
 		///</para>
