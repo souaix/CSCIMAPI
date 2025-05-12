@@ -1,4 +1,5 @@
 ﻿using Core.Entities.DboEmap;
+using Core.Entities.DefectCount;
 using Core.Entities.LaserMarking;
 using Core.Entities.LeakageCheck;
 using Core.Entities.LotTileCheck;
@@ -23,7 +24,7 @@ namespace Core.Interfaces
 		Task<ApiReturn<List<TileCheckResultDto>>> LotTileCheckAsync(LotTileCheckRequest request);
 		Task<ApiReturn<int>> Save2DCodeAsync(Recipe2DCodeRequest request);
 		Task<ApiReturn<YieldRecordDataResult>> LoadYieldRecordDataAsync(YieldRecordDataRequest request);
+        Task<ApiReturn<DefectCountResponse>> CountDefectsAsync(DefectCountRequest request);
 
-
-	}
+    }
 }

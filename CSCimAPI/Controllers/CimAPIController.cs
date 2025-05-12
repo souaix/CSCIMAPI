@@ -17,6 +17,7 @@ using Core.Entities.LotTileCheck;
 using Core.Entities.Recipe2DCodeGenerator;
 using System;
 using Core.Entities.YieldRecordData;
+using Core.Entities.DefectCount;
 
 namespace CimAPI.Controllers
 {
@@ -124,23 +125,53 @@ namespace CimAPI.Controllers
 			}
 		}
 
-		/// <summary>
-		/// 填洞測漏檢查 API
-		/// </summary>
-		/// <remarks>
-		/// <para>
-		/// {
-		///  "environment": "Production",
-		///  "action":"SELECT",
-		///  "lotno": "WB2025200242-A00072",
-		///  "opno": "BTS00001",
-		///  "deviceid": "LK-007",
-		///  "diff": 0.0001
+        /// <summary>
+        /// DefectCount功能
+        /// 
+        /// </summary>
+        /// <remarks>
+        /// {
+        ///  "environment": "cim28",
+        ///  "action": "CountDefects",
+        ///  "programename": "S-1DP000005711",
+        ///  "lotno": "WB2025400064-A00002",
+        ///  "stepCode": "BTS00091",  
 		/// }
-		/// </para>
-		/// </remarks>
+        /// action:
+        /// 1. CountDefects
+        /// </remarks>
+        /// 
 
-		[Route("[controller]/LeakageCheck")]
+
+        [Route("[controller]/DefectCount")]
+        [HttpPost]
+        public async Task<IActionResult> DefectCount([FromBody] DefectCountRequest request)
+        {
+            if (request == null || string.IsNullOrWhiteSpace(request.Environment) || string.IsNullOrWhiteSpace(request.Lotno))
+                return BadRequest(ApiReturn<string>.Failure("參數不完整"));
+
+            var result = await _facade.CountDefectsAsync(request);
+            return result.Result == "Ok" ? Ok(result) : BadRequest(result);
+        }
+
+
+        /// <summary>
+        /// 填洞測漏檢查 API
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// {
+        ///  "environment": "Production",
+        ///  "action":"SELECT",
+        ///  "lotno": "WB2025200242-A00072",
+        ///  "opno": "BTS00001",
+        ///  "deviceid": "LK-007",
+        ///  "diff": 0.0001
+        /// }
+        /// </para>
+        /// </remarks>
+
+        [Route("[controller]/LeakageCheck")]
 		[HttpPost]
 		public async Task<IActionResult> LeakageCheck([FromBody] LeakageCheckRequest request)
 		{
