@@ -18,13 +18,13 @@
 		public string Enabled { get; set; }
 
 		// 建立時間
-		public DateTime? CreateTime { get; set; }
+		public DateTime? CreateDate { get; set; }
 
 		// 建立者
 		public string Creator { get; set; }
 
 		// 修改時間
-		public DateTime? UpdateTime { get; set; }
+		public DateTime? UpdateDate { get; set; }
 
 		// 修改者
 		public string Updater { get; set; }
