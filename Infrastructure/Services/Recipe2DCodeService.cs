@@ -36,7 +36,7 @@ namespace Infrastructure.Services
 			byte[] dmBytes = DataMatrixHelper.GenerateDataMatrix(combined);
 
 			//var repo = _repositoryFactory.CreateRepository(req.Environment);
-			var (_, repo) = RepositoryHelper.CreateRepositories(req.Environment, _repositoryFactory);
+			var (_, repo, _) = RepositoryHelper.CreateRepositories(req.Environment, _repositoryFactory);
 
 			string sql = @"
 							MERGE INTO ARGOMESRECIPE2DCODE T

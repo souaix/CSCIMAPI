@@ -68,7 +68,7 @@ namespace Infrastructure.Services
 		{
 			var notifyGroup = request.NotifyGroup;
 			var message = request.Message;
-			var (_, repository) = RepositoryHelper.CreateRepositories(request.Environment, _repositoryFactory);//cim			
+			var (_, repository, _) = RepositoryHelper.CreateRepositories(request.Environment, _repositoryFactory);//cim			
 
 			var config = await repository.QueryFirstOrDefaultAsync<(string TEAMS, string TEAMSAPIURI)>(
 				"SELECT TEAMS, TEAMSAPIURI FROM ARGOCIMNOTIFYCONFIG WHERE NOTIFYGROUP = :notifyGroup",

@@ -20,7 +20,7 @@ namespace Infrastructure.Services
             try
             {
                 //var repo = _repositoryFactory.CreateRepository(request.Environment);
-                var (oracleRepo, repo) = RepositoryHelper.CreateRepositories(request.Environment, _repositoryFactory);
+                var (oracleRepo, repo, _) = RepositoryHelper.CreateRepositories(request.Environment, _repositoryFactory);
 
                 var (steps, deviceIds) = await OpnoQueryModelHelper.ResolveQueryModeAsync(repo, request.StepCode, "");
 

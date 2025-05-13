@@ -12,7 +12,7 @@ namespace Infrastructure.Services // ✅ 加上 namespace
 		private readonly IRepositoryFactory _repositoryFactory;
 		private readonly IHttpContextAccessor _httpContextAccessor;
 		private readonly string _environment;
-		
+
 
 		public FindUrlService(IRepositoryFactory repositoryFactory, IHttpContextAccessor httpContextAccessor)
 		{
@@ -21,7 +21,7 @@ namespace Infrastructure.Services // ✅ 加上 namespace
 
 		public async Task<string?> GetUrlByIdAsync(string urlId, string environment)
 		{
-			var (_, repository) = RepositoryHelper.CreateRepositories(environment, _repositoryFactory);//cim			
+			var (_, repository, _) = RepositoryHelper.CreateRepositories(environment, _repositoryFactory);//cim			
 			string query = "SELECT URL FROM ARGOCIMURLMAPPING WHERE URLID = :UrlId";
 			return await repository.QueryFirstOrDefaultAsync<string>(query, new { UrlId = urlId });
 		}

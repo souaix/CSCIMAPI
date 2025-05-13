@@ -21,7 +21,7 @@ namespace Infrastructure.Services
 
 		public async Task<ApiReturn<object>> CheckLotTileAsync(LotTileCheckRequest request)
 		{
-			var (repoDbo, repoCim) = RepositoryHelper.CreateRepositories(request.Environment, _repositoryFactory);
+			var (repoDbo, repoCim, _) = RepositoryHelper.CreateRepositories(request.Environment, _repositoryFactory);
 			var result = new List<TileCheckResultDto>();
 
 			//解析查詢規則(S1~S4)			

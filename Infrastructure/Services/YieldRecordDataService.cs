@@ -21,7 +21,7 @@ namespace Infrastructure.Services
 		{
 			try
 			{
-				var (_, repoCim) = RepositoryHelper.CreateRepositories(request.Environment, _repositoryFactory);
+				var (_, repoCim, _) = RepositoryHelper.CreateRepositories(request.Environment, _repositoryFactory);
 
 				// 查詢路徑設定
 				var sql = @"SELECT FILEPATH, FILENAME, FILEEXT, PATHACCOUNT, PATHPASSWORD 
