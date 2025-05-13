@@ -125,7 +125,7 @@ namespace Infrastructure.Services
                 SELECT TILEID, V007, V008, RECORDDATE
                 FROM {tableName}
                 WHERE LOTNO = :lotno
-                  AND STEP IN :steps
+                  AND STEP IN :opnos
                   AND DEVICEID IN :deviceids
                   AND CSTYPE = 'PD'
                   AND TILEID IS NOT NULL
@@ -135,7 +135,7 @@ namespace Infrastructure.Services
 			var rows = (await repoDbo.QueryAsync<LeakageRawDataDto>(sql, new
 			{
 				lotno = request.Lotno,
-				opno = opnosToQuery,
+				opnos = opnosToQuery,
 				deviceids = deviceIdsToQuery,
 				daysRange = maxDays
 			}))?.ToList();

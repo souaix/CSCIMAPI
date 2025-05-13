@@ -6,6 +6,6 @@
         public string Action { get; set; }
         public string Programename { get; set; }
         public string Lotno { get; set; }
-        public string StepCode { get; set; }
+        public string OpNo { get; set; }
     }
 }
