@@ -1,4 +1,5 @@
 ﻿using Core.Entities.DboEmap;
+using Core.Entities.DefectCount;
 using Core.Entities.LaserMarking;
 using Core.Entities.LeakageCheck;
 using Core.Entities.LotTileCheck;
@@ -8,6 +9,7 @@ using Core.Entities.Recipe2DCodeGenerator;
 using Core.Entities.Scada;
 using Core.Entities.TeamsAlarm;
 using Core.Entities.YieldRecordData;
+using System.Threading.Tasks;
 
 namespace Core.Interfaces
 {
@@ -24,11 +26,10 @@ namespace Core.Interfaces
 		Task<ApiReturn<object>> LotTileCheckAsync(LotTileCheckRequest request);
 		Task<ApiReturn<int>> Save2DCodeAsync(Recipe2DCodeRequest request);
 		Task<ApiReturn<YieldRecordDataResult>> LoadYieldRecordDataAsync(YieldRecordDataRequest request);
-
-		/// <summary>
-		/// 寫入 SCADA Tag（OPC UA）
-		/// </summary>
+		Task<ApiReturn<DefectCountResponse>> CountDefectsAsync(DefectCountRequest request);
 		Task<ApiReturn<bool>> WriteScadaTagAsync(ScadaWriteRequest request);
+
+
 
 	}
 }

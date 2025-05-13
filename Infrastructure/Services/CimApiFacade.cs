@@ -8,7 +8,9 @@ using Core.Entities.TeamsAlarm;
 using Core.Entities.LotTileCheck;
 using Core.Entities.Recipe2DCodeGenerator;
 using Core.Entities.YieldRecordData;
+using Core.Entities.DefectCount;
 using Core.Entities.Scada;
+
 
 namespace Infrastructure.Services
 {
@@ -22,9 +24,10 @@ namespace Infrastructure.Services
 		private readonly ILotTileCheckService _lotTileCheckService;
 		private readonly IRecipe2DCodeService _recipe2DCodeService;
 		private readonly IYieldRecordDataService _yieldRecordDataService;
+        private readonly IDefectCountService _defectCountService;
 		private readonly IScadaService _scadaService;
 
-		public CimApiFacade(
+        public CimApiFacade(
 			IInsertWipDataService insertWipDataService,
 			ILaserMarkingService laserMarkingService,
 			ILeakageCheckService leakageCheckService,
@@ -33,7 +36,7 @@ namespace Infrastructure.Services
 			ILotTileCheckService lotTileCheckService,
 			IRecipe2DCodeService recipe2DCodeService,
 			IYieldRecordDataService yieldRecordDataService,
-			IScadaService scadaService)
+            IDefectCountService defectCountService)
 		{
 			_insertWipDataService = insertWipDataService;
 			_laserMarkingService = laserMarkingService;
@@ -43,6 +46,7 @@ namespace Infrastructure.Services
 			_lotTileCheckService = lotTileCheckService;
 			_recipe2DCodeService = recipe2DCodeService;
 			_yieldRecordDataService = yieldRecordDataService;
+			_defectCountService = defectCountService;
 			_scadaService = scadaService;
 		}
 
@@ -100,6 +104,10 @@ namespace Infrastructure.Services
 		{
 			return _yieldRecordDataService.LoadYieldRecordDataAsync(request);
 		}
+        public async Task<ApiReturn<DefectCountResponse>> CountDefectsAsync(DefectCountRequest request)
+        {
+            return await _defectCountService.CountDefectsAsync(request);
+        }
 
 		public async Task<ApiReturn<bool>> WriteScadaTagAsync(ScadaWriteRequest request)
 		{
