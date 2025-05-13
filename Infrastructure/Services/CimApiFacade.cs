@@ -36,7 +36,8 @@ namespace Infrastructure.Services
 			ILotTileCheckService lotTileCheckService,
 			IRecipe2DCodeService recipe2DCodeService,
 			IYieldRecordDataService yieldRecordDataService,
-            IDefectCountService defectCountService)
+            IDefectCountService defectCountService,
+			IScadaService scadaService)
 		{
 			_insertWipDataService = insertWipDataService;
 			_laserMarkingService = laserMarkingService;
