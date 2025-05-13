@@ -11,17 +11,17 @@ namespace Infrastructure.Utilities
 				"Production" => (
 					factory.CreateRepository("dboEmapProd"),
 					factory.CreateRepository("csCimEmapProd"),
-					factory.CreateRepository("laserMarkingNormalProd")
+					factory.CreateRepository("laserMarkingProd")
 				),
 				"Test" => (
 					factory.CreateRepository("dboEmapTest"),
 					factory.CreateRepository("csCimEmapTest"),
-					factory.CreateRepository("laserMarkingNormalTest")
+					factory.CreateRepository("laserMarkingTest")
 				),
                 "Develop" => (
                     factory.CreateRepository("dboEmapTest"),
                     factory.CreateRepository("cim28"),
-					factory.CreateRepository("laserMarkingNormalTest")
+					factory.CreateRepository("laserMarkingTest")
 				),
                 _ => throw new Exception("Unknown environment: " + environment)
 			};
