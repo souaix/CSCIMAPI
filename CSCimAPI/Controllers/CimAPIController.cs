@@ -126,7 +126,7 @@ namespace CimAPI.Controllers
 		}
 
         /// <summary>
-        /// DefectCount功能
+        /// TestDefectCount功能
         /// 
         /// </summary>
         /// <remarks>
@@ -143,7 +143,7 @@ namespace CimAPI.Controllers
         /// 
 
 
-        [Route("[controller]/DefectCount")]
+        [Route("[controller]/TestDefectCount")]
         [HttpPost]
         public async Task<IActionResult> DefectCount([FromBody] DefectCountRequest request)
         {
