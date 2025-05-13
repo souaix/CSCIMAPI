@@ -65,8 +65,9 @@ namespace CimAPI.Controllers
 		/// 
 		/// </summary>
 		/// <remarks>
+		/// <para>
 		/// {
-		///  "environment": "cim28",
+		///  "environment": "Production",
 		///  "action" : "GetConfigData",
 		///  "size": "",
 		///  "product": "2DP000000068",
@@ -76,6 +77,7 @@ namespace CimAPI.Controllers
 		/// action:
 		/// 1. GetConfigData
 		/// 2. CheckConfigDataExists
+		/// </para>
 		/// </remarks>
 
 		[Route("[controller]/LaserMarking")]
@@ -126,25 +128,27 @@ namespace CimAPI.Controllers
 			}
 		}
 
-        /// <summary>
-        /// TestDefectCount功能
-        /// 
-        /// </summary>
-        /// <remarks>
-        /// {
-        ///  "environment": "cim28",
-        ///  "action": "CountDefects",
-        ///  "programename": "S-1DP000005711",
-        ///  "lotno": "WB2025400064-A00002",
-        ///  "stepCode": "BTS00091",  
+		/// <summary>
+		/// TestDefectCount功能
+		/// 
+		/// </summary>
+		/// <remarks>
+		/// <para>
+		/// {
+		///  "environment": "Production",
+		///  "action": "CountDefects",
+		///  "programename": "S-1DP000005711",
+		///  "lotno": "WB2025400064-A00002",
+		///  "stepCode": "BTS00091",  
 		/// }
-        /// action:
-        /// 1. CountDefects
-        /// </remarks>
-        /// 
+		/// action:
+		/// 1. CountDefects
+		/// </para>
+		/// </remarks>
+		/// 
 
 
-        [Route("[controller]/TestDefectCount")]
+		[Route("[controller]/TestDefectCount")]
         [HttpPost]
         public async Task<IActionResult> DefectCount([FromBody] DefectCountRequest request)
         {

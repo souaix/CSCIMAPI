@@ -22,8 +22,8 @@ namespace Infrastructure.Services
                 //var repo = _repositoryFactory.CreateRepository(request.Environment);
                 var (oracleRepo, repo, _) = RepositoryHelper.CreateRepositories(request.Environment, _repositoryFactory);
 
-                var (steps, deviceIds) = await OpnoQueryModelHelper.ResolveQueryModeAsync(repo, request.StepCode, "");
-
+                var (opnos, deviceIds) = await OpnoQueryModelHelper.ResolveQueryModeAsync(repo, request.OpNo, "");
+                
                 var fileSettingList = await repo.QueryAsync<ARGOCIMDEVICEFILESETTING>(
                     "SELECT * FROM ARGOCIMDEVICEFILESETTING WHERE DEVICENO IN :deviceIds",
                     new { deviceIds });
