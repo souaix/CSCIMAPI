@@ -97,15 +97,17 @@ namespace Infrastructure.Services
             var (oracleRepo, repository) = RepositoryHelper.CreateRepositories(request.Environment, _repositoryFactory);
 
             // 2. 取得 Config（依據 request.Product）
+            string configName = $"{request.Size}{request.Product}-{request.Version}-{request.StepCode}".Trim('-');
+            
             var config = await repository.QueryFirstOrDefaultAsync<Config>(
                 "SELECT * FROM Config WHERE Config_Name = @ConfigName",
-                new { ConfigName = request.Product }
+                new { ConfigName = configName }
             );
             if (config == null)
                 return ApiReturn<string>.Failure("Config 設定檔未找到!");
 
-			// 1.1 取得 CustomerConfig（依據 request.Customer）
-			var customerConfig = await repository.QueryFirstOrDefaultAsync<CustomerConfig>(
+            // 1.1 取得 CustomerConfig（依據 request.Customer）
+            var customerConfig = await repository.QueryFirstOrDefaultAsync<CustomerConfig>(
                 "SELECT * FROM CustomerConfig WHERE Customer = @Customer",
                 new { Customer = request.Customer }
             );
@@ -161,16 +163,24 @@ namespace Infrastructure.Services
 			if (stepCodeExistsInOpnoPrefix)
             {
                 // StepCode 存在於 opno_prefix，只插入 C+LotNo 和 D+LotNo
-                await SaveProductTable(repository, "C" + request.LotNo, request.Customer, $"{request.Product}-TOP-C", topTileIds, topLastSN, finalProductTileId, config,true);
-                await SaveProductTable(repository, "D" + request.LotNo, request.Customer, $"{request.Product}-TOP-D", topTileIds, topLastSN, finalProductTileId, config,true);
+                //await SaveProductTable(repository, "C" + request.LotNo, request.Customer, $"{request.Product}-TOP-C", topTileIds, topLastSN, finalProductTileId, config,true);
+                //await SaveProductTable(repository, "D" + request.LotNo, request.Customer, $"{request.Product}-TOP-D", topTileIds, topLastSN, finalProductTileId, config,true);
+                await SaveProductTable(repository, "C" + request.LotNo, request.Customer, $"{configName}-TOP-C", topTileIds, topLastSN, finalProductTileId, config, true);
+                await SaveProductTable(repository, "D" + request.LotNo, request.Customer, $"{configName}-TOP-D", topTileIds, topLastSN, finalProductTileId, config, true);
             }
             else
             {
                 // StepCode 不存在於 opno_prefix，插入 LotNo
                 if (config.Side == 1)
-                { await SaveProductTable(repository, request.LotNo, request.Customer, $"{request.Product}", topTileIds, topLastSN, finalProductTileId, config,true); }
+                { 
+                    //await SaveProductTable(repository, request.LotNo, request.Customer, $"{request.Product}", topTileIds, topLastSN, finalProductTileId, config,true);
+                    await SaveProductTable(repository, request.LotNo, request.Customer, $"{configName}", topTileIds, topLastSN, finalProductTileId, config, true);
+                }
                 else 
-                { await SaveProductTable(repository, request.LotNo, request.Customer, $"{request.Product}-TOP", topTileIds, topLastSN, finalProductTileId, config,true); }
+                {
+                    //await SaveProductTable(repository, request.LotNo, request.Customer, $"{request.Product}-TOP", topTileIds, topLastSN, finalProductTileId, config,true); 
+                    await SaveProductTable(repository, request.LotNo, request.Customer, $"{configName}-TOP", topTileIds, topLastSN, finalProductTileId, config, true);
+                }
                 
             }
 
@@ -204,13 +214,16 @@ namespace Infrastructure.Services
 				if (stepCodeExistsInOpnoPrefix)
                 {
                     // StepCode 存在於 opno_prefix，插入 BC+LotNo 和 BD+LotNo
-                    await SaveProductTable(repository, "BC" + request.LotNo, request.Customer, $"{request.Product}-BACK-C", backTileIds, backLastSN, finalBackTileId,config,false);
-                    await SaveProductTable(repository, "BD" + request.LotNo, request.Customer, $"{request.Product}-BACK-D", backTileIds, backLastSN, finalBackTileId, config,false);
+                    //await SaveProductTable(repository, "BC" + request.LotNo, request.Customer, $"{request.Product}-BACK-C", backTileIds, backLastSN, finalBackTileId,config,false);
+                    //await SaveProductTable(repository, "BD" + request.LotNo, request.Customer, $"{request.Product}-BACK-D", backTileIds, backLastSN, finalBackTileId, config,false);
+                    await SaveProductTable(repository, "BC" + request.LotNo, request.Customer, $"{configName}-BACK-C", backTileIds, backLastSN, finalBackTileId, config, false);
+                    await SaveProductTable(repository, "BD" + request.LotNo, request.Customer, $"{configName}-BACK-D", backTileIds, backLastSN, finalBackTileId, config, false);
                 }
                 else
                 {
                     // StepCode 不存在於 opno_prefix，插入 B+LotNo
-                    await SaveProductTable(repository, "B" + request.LotNo, request.Customer, $"{request.Product}-BACK", backTileIds, backLastSN, finalBackTileId, config,false);
+                    //await SaveProductTable(repository, "B" + request.LotNo, request.Customer, $"{request.Product}-BACK", backTileIds, backLastSN, finalBackTileId, config,false);
+                    await SaveProductTable(repository, "B" + request.LotNo, request.Customer, $"{configName}-BACK", backTileIds, backLastSN, finalBackTileId, config, false);
                 }
 
 
