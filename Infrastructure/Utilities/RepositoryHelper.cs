@@ -4,22 +4,25 @@ namespace Infrastructure.Utilities
 {
 	public static class RepositoryHelper
 	{
-		public static (IRepository repo, IRepository repoCim) CreateRepositories(string environment, IRepositoryFactory factory)
+		public static (IRepository repo, IRepository repoCim, IRepository repoLaser) CreateRepositories(string environment, IRepositoryFactory factory)
 		{
 			return environment switch
 			{
 				"Production" => (
 					factory.CreateRepository("dboEmapProd"),
-					factory.CreateRepository("csCimEmapProd")
+					factory.CreateRepository("csCimEmapProd"),
+					factory.CreateRepository("laserMarkingNormalProd")
 				),
 				"Test" => (
 					factory.CreateRepository("dboEmapTest"),
-					factory.CreateRepository("csCimEmapTest")
+					factory.CreateRepository("csCimEmapTest"),
+					factory.CreateRepository("laserMarkingNormalTest")
 				),
                 "Develop" => (
                     factory.CreateRepository("dboEmapTest"),
-                    factory.CreateRepository("cim28")
-                ),
+                    factory.CreateRepository("cim28"),
+					factory.CreateRepository("laserMarkingNormalTest")
+				),
                 _ => throw new Exception("Unknown environment: " + environment)
 			};
 		}

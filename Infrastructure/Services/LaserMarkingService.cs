@@ -32,7 +32,7 @@ namespace Infrastructure.Services
             string configName = $"{request.Size}{request.Product}-{request.Version}-{request.StepCode}".Trim('-');
 
             //var repository = _repositoryFactory.CreateRepository(request.Environment);
-            var (oracleRepo, repository) = RepositoryHelper.CreateRepositories(request.Environment, _repositoryFactory);
+            var (_, _, repoLaser) = RepositoryHelper.CreateRepositories(request.Environment, _repositoryFactory);
 
             //string sql = $"SELECT * FROM CONFIG WHERE CONFIG_NAME = '{configName}'";
             string sql = @"SELECT 
@@ -78,7 +78,7 @@ namespace Infrastructure.Services
                 FROM config  WHERE CONFIG_NAME = '" + configName + "'";
 
 
-            var result = await repository.QueryFirstOrDefaultAsync<Config>(sql);
+            var result = await repoLaser.QueryFirstOrDefaultAsync<Config>(sql);
 
             //Console.WriteLine(result.ConfigName);
 
@@ -94,7 +94,7 @@ namespace Infrastructure.Services
         {
             
             //20250422 改接兩個DB設定
-            var (oracleRepo, repository) = RepositoryHelper.CreateRepositories(request.Environment, _repositoryFactory);
+            var (oracleRepo, repository, _) = RepositoryHelper.CreateRepositories(request.Environment, _repositoryFactory);
 
             // 2. 取得 Config（依據 request.Product）
             string configName = $"{request.Size}{request.Product}-{request.Version}-{request.StepCode}".Trim('-');
