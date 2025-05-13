@@ -18,6 +18,7 @@ using Core.Entities.Recipe2DCodeGenerator;
 using System;
 using Core.Entities.YieldRecordData;
 using Core.Entities.DefectCount;
+using Core.Entities.Scada;
 
 namespace CimAPI.Controllers
 {
@@ -485,6 +486,30 @@ namespace CimAPI.Controllers
 		}
 
 
+		/// <summary>
+		/// 寫入 SCADA Tag (透過 OPC UA)
+		/// </summary>
+		/// <remarks>
+		/// <para>
+		/// {
+		///     "endpointUrl": "opc.tcp://10.14.5.134:49320",
+		///     "nodeId": "ns=2;s=ns=2;s=C001.T.T",
+		///     "value": 123
+		/// }
+		/// </para>
+		/// </remarks>
+		[HttpPost]
+		[Route("[controller]/Scada/WriteTag")]
+		public async Task<IActionResult> WriteScadaTag([FromBody] ScadaWriteRequest request)
+		{
+			if (request == null || string.IsNullOrWhiteSpace(request.EndpointUrl) || string.IsNullOrWhiteSpace(request.NodeId))
+			{
+				return BadRequest(ApiReturn<string>.Failure("請求參數不完整"));
+			}
+
+			var result = await _facade.WriteScadaTagAsync(request);
+			return result.Result == "Ok" ? Ok(result) : BadRequest(result);
+		}
 
 	}
 }

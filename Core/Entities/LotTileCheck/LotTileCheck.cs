@@ -39,16 +39,24 @@
 	{
 		public string TileId { get; set; }
 		public string LotNo { get; set; }
-		public string ResultList { get; set; } // "Black" / "White"
-		public string Reason { get; set; }     // "NG" or ""
 		public DateTime? RecordDate { get; set; }
 
-		// 用於判斷的額外欄位
-		public string Panel_Id1 { get; set; }
-		public string Panel_Id2 { get; set; }
-		public string Panel_Id3 { get; set; }
-		public string Panel_Id4 { get; set; }
-		public string Chk { get; set; }
+		public string TH_TileId { get; set; }
+		public string TH_TileId_2 { get; set; }
+
+		public string CS_TileId { get; set; }
+		public string CS_TileId2 { get; set; }
+		public string CS_TileId3 { get; set; }
+		public string CS_TileId4 { get; set; }
+
+		//public string Panel_Id1 { get; set; }
+		//public string Panel_Id2 { get; set; }
+		//public string Panel_Id3 { get; set; }
+		//public string Panel_Id4 { get; set; }
+
+		public string ResultList { get; set; }
+		public string Reason { get; set; }
 	}
+
 
 }
