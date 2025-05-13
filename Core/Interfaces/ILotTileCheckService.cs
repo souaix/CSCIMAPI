@@ -5,6 +5,6 @@ namespace Core.Interfaces
 {
 	public interface ILotTileCheckService
 	{
-		Task<ApiReturn<List<TileCheckResultDto>>> CheckLotTileAsync(LotTileCheckRequest request);
+		Task<ApiReturn<object>> CheckLotTileAsync(LotTileCheckRequest request);
 	}
 }

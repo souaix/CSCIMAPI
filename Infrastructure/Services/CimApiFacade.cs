@@ -8,6 +8,7 @@ using Core.Entities.TeamsAlarm;
 using Core.Entities.LotTileCheck;
 using Core.Entities.Recipe2DCodeGenerator;
 using Core.Entities.YieldRecordData;
+using Core.Entities.Scada;
 
 namespace Infrastructure.Services
 {
@@ -21,6 +22,7 @@ namespace Infrastructure.Services
 		private readonly ILotTileCheckService _lotTileCheckService;
 		private readonly IRecipe2DCodeService _recipe2DCodeService;
 		private readonly IYieldRecordDataService _yieldRecordDataService;
+		private readonly IScadaService _scadaService;
 
 		public CimApiFacade(
 			IInsertWipDataService insertWipDataService,
@@ -30,7 +32,8 @@ namespace Infrastructure.Services
 			IMailSenderService mailSenderService,
 			ILotTileCheckService lotTileCheckService,
 			IRecipe2DCodeService recipe2DCodeService,
-			IYieldRecordDataService yieldRecordDataService)
+			IYieldRecordDataService yieldRecordDataService,
+			IScadaService scadaService)
 		{
 			_insertWipDataService = insertWipDataService;
 			_laserMarkingService = laserMarkingService;
@@ -40,6 +43,7 @@ namespace Infrastructure.Services
 			_lotTileCheckService = lotTileCheckService;
 			_recipe2DCodeService = recipe2DCodeService;
 			_yieldRecordDataService = yieldRecordDataService;
+			_scadaService = scadaService;
 		}
 
 		public Task<ApiReturn<int>> InsertWipDataAsync(string environment, string tableName, TblMesWipData_Record request)
@@ -82,7 +86,7 @@ namespace Infrastructure.Services
 			return await _mailSenderService.SendEmailAsync(request);
 		}
 
-		public async Task<ApiReturn<List<TileCheckResultDto>>> LotTileCheckAsync(LotTileCheckRequest request)
+		public async Task<ApiReturn<object>> LotTileCheckAsync(LotTileCheckRequest request)
 		{
 			return await _lotTileCheckService.CheckLotTileAsync(request);
 		}
@@ -97,6 +101,19 @@ namespace Infrastructure.Services
 			return _yieldRecordDataService.LoadYieldRecordDataAsync(request);
 		}
 
-
+		public async Task<ApiReturn<bool>> WriteScadaTagAsync(ScadaWriteRequest request)
+		{
+			try
+			{
+				bool success = await _scadaService.WriteTagAsync(request);
+				return success
+					? ApiReturn<bool>.Success("Tag 寫入成功", true)
+					: ApiReturn<bool>.Failure("Tag 寫入失敗");
+			}
+			catch (Exception ex)
+			{
+				return ApiReturn<bool>.Failure($"例外錯誤：{ex.Message}");
+			}
+		}
 	}
 }
