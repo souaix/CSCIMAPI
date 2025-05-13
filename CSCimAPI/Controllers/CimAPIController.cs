@@ -77,6 +77,7 @@ namespace CimAPI.Controllers
 		/// action:
 		/// 1. GetConfigData
 		/// 2. CheckConfigDataExists
+		/// 3. GenerateTileIds
 		/// </para>
 		/// </remarks>
 
@@ -134,13 +135,13 @@ namespace CimAPI.Controllers
 		/// </summary>
 		/// <remarks>
 		/// <para>
-		/// {
+		///{
 		///  "environment": "Production",
-		///  "action": "CountDefects",
-		///  "programename": "S-1DP000005711",
-		///  "lotno": "WB2025400064-A00002",
-		///  "stepCode": "BTS00091",  
-		/// }
+		///  "action": "DefectCount",
+		///  "programename": "1AM000005111",
+		///  "lotno": "WB2025500042-D00004",
+		///  "opno": "BTS00091"
+		///	}
 		/// action:
 		/// 1. CountDefects
 		/// </para>
