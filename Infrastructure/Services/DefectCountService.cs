@@ -3,27 +3,34 @@ using Core.Entities.DefectCount;
 using Core.Entities.Public;
 using Core.Interfaces;
 using Infrastructure.Utilities;
+using Microsoft.Extensions.Logging;
 using System.Text.Json;
 namespace Infrastructure.Services
 {
     public class DefectCountService : IDefectCountService
     {
         private readonly IRepositoryFactory _repositoryFactory;
+        private readonly ILogger<DefectCountService> _logger;
 
-        public DefectCountService(IRepositoryFactory repositoryFactory)
+        public DefectCountService(IRepositoryFactory repositoryFactory, ILogger<DefectCountService> logger)
         {
             _repositoryFactory = repositoryFactory;
+            _logger = logger;
         }
 
         public async Task<ApiReturn<DefectCountResponse>> CountDefectsAsync(DefectCountRequest request)
         {
             try
             {
+                _logger.LogInformation($"[DefectCount] 開始處理 Request: Env={request.Environment}, PN={request.Programename}, Lot={request.Lotno}, OpNo={request.OpNo}");
                 //var repo = _repositoryFactory.CreateRepository(request.Environment);
                 var (oracleRepo, repo, _) = RepositoryHelper.CreateRepositories(request.Environment, _repositoryFactory);
 
                 var (opnos, deviceIds) = await OpnoQueryModelHelper.ResolveQueryModeAsync(repo, request.OpNo, "");
-                
+
+                _logger.LogInformation($"[DefectCount] 解析出 Steps: {string.Join(", ", opnos)}");
+                _logger.LogInformation($"[DefectCount] 解析出 Devices: {string.Join(", ", deviceIds)}");
+
                 var fileSettingList = await repo.QueryAsync<ARGOCIMDEVICEFILESETTING>(
                     "SELECT * FROM ARGOCIMDEVICEFILESETTING WHERE DEVICENO IN :deviceIds",
                     new { deviceIds });
@@ -49,7 +56,12 @@ namespace Infrastructure.Services
                 foreach (var device in deviceIds)
                 {
                     var setting = fileSettingList.FirstOrDefault(f => f.DeviceNo == device);
-                    if (setting == null) continue;
+                    if (setting == null)
+                    {
+                        _logger.LogWarning($"[DefectCount] 找不到 Device {device} 的設定 (ARGOCIMDEVICEFILESETTING)");
+                        continue; 
+                        
+                    }
 
                     var group = setting.DeviceGroupNo;
                     // 優先找設備專屬規則，否則 fallback 用 DEVICEGROUP + DEVICENO=None
@@ -60,16 +72,25 @@ namespace Infrastructure.Services
                             .Where(r => r.DeviceGroupNo == group && r.DeviceNo == "None")
                             .ToList();
                     }
-                    var ruleMap = new Dictionary<string, RuleEntry>();
+                    var ruleMap = new Dictionary<string, RuleEntry>();  
                     foreach (var rule in deviceRules)
                     {
                         if (string.IsNullOrWhiteSpace(rule.RuleType) || string.IsNullOrWhiteSpace(rule.RuleJson))
                             continue;
 
-                        if (!ruleMap.ContainsKey(rule.RuleType))
+                        //if (!ruleMap.ContainsKey(rule.RuleType))
+                        //{
+                        //    var entry = JsonSerializer.Deserialize<RuleEntry>(rule.RuleJson);
+                        //    ruleMap[rule.RuleType] = entry;
+                        //}
+                        try
                         {
                             var entry = JsonSerializer.Deserialize<RuleEntry>(rule.RuleJson);
                             ruleMap[rule.RuleType] = entry;
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError($"[DefectCount] 解析 JSON 規則錯誤 Device={device}, Type={rule.RuleType}, Error={ex.Message}");
                         }
                     }
                     //var rule = ruleList.FirstOrDefault(r => r.DeviceNo == device);
@@ -86,38 +107,75 @@ namespace Infrastructure.Services
                     //    );
                     //var dir = Path.Combine(setting.FilePath, request.Lotno);
                     var dir = ResolveFilePath(setting.FilePath, device, request.Programename, request.Lotno);
-                    if (!Directory.Exists(dir)) continue;
+                    _logger.LogInformation($"[DefectCount] Device={device} 目錄：{dir}");
+                    if (!Directory.Exists(dir))
+                    {
+                        _logger.LogWarning($"[DefectCount] 目錄不存在：{dir}");
+                        continue; 
+                    }
 
                     foreach (var file in Directory.GetFiles(dir, "*.txt"))
                     {
-                        var lines = File.ReadAllLines(file);
-                        var values = DefectFileParser.ParseFile(lines, ruleMap);
+                        _logger.LogInformation($"[DefectCount] 處理檔案：{file}");
+                        try
+                        {
+                            var lines = File.ReadAllLines(file);
+                            var values = DefectFileParser.ParseFile(lines, ruleMap);
 
-                        values.TryGetValue("PASS", out int p);
-                        values.TryGetValue("OPEN", out int o);
-                        values.TryGetValue("SHORT", out int s);
-                        values.TryGetValue("HVSHORT", out int hs);
-                        values.TryGetValue("OPENSHORT", out int os);
-                        values.TryGetValue("OPENHVSHORT", out int ohs);
-                        values.TryGetValue("FOURLINEERROR", out int f);
+                            values.TryGetValue("PASS", out int p);
+                            values.TryGetValue("OPEN", out int o);
+                            values.TryGetValue("SHORT", out int s);
+                            values.TryGetValue("HVSHORT", out int hs);
+                            values.TryGetValue("OPENSHORT", out int os);
+                            values.TryGetValue("OPENHVSHORT", out int ohs);
+                            values.TryGetValue("FOURLINEERROR", out int f);
 
-                        pass += p;
-                        open += o + os + ohs;
-                        shorts += s + hs;
-                        fourW += f;
+                            pass += p;
+                            open += o + os + ohs;
+                            shorts += s + hs;
+                            fourW += f;
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError($"[DefectCount] 檔案處理錯誤：{file}, 錯誤: {ex.Message}");
+                        }
+                        //var lines = File.ReadAllLines(file);
+                        //var values = DefectFileParser.ParseFile(lines, ruleMap);
+
+                        //values.TryGetValue("PASS", out int p);
+                        //values.TryGetValue("OPEN", out int o);
+                        //values.TryGetValue("SHORT", out int s);
+                        //values.TryGetValue("HVSHORT", out int hs);
+                        //values.TryGetValue("OPENSHORT", out int os);
+                        //values.TryGetValue("OPENHVSHORT", out int ohs);
+                        //values.TryGetValue("FOURLINEERROR", out int f);
+
+                        //pass += p;
+                        //open += o + os + ohs;
+                        //shorts += s + hs;
+                        //fourW += f;
                     }
                 }
-
-                return ApiReturn<DefectCountResponse>.Success("計算完成", new DefectCountResponse
+                var response = new DefectCountResponse
                 {
                     PASS = pass,
                     OPEN = open,
                     SHORT = shorts,
                     _4W = fourW
-                });
+                };
+                _logger.LogInformation($"[DefectCount] 計算完成: PASS={pass}, OPEN={open}, SHORT={shorts}, 4W={fourW}");
+                return ApiReturn<DefectCountResponse>.Success("計算完成", response);
+                //return ApiReturn<DefectCountResponse>.Success("計算完成", new DefectCountResponse
+                //{
+                //    PASS = pass,
+                //    OPEN = open,
+                //    SHORT = shorts,
+                //    _4W = fourW
+                //});
             }
             catch (Exception ex)
             {
+                _logger.LogError($"[DefectCount] 發生例外錯誤: {ex.Message}");
                 return ApiReturn<DefectCountResponse>.Failure("錯誤: " + ex.Message);
             }
         }
