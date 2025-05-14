@@ -106,55 +106,104 @@ namespace Infrastructure.Services
                     //        r => JsonSerializer.Deserialize<RuleEntry>(r.RuleJson)
                     //    );
                     //var dir = Path.Combine(setting.FilePath, request.Lotno);
+
                     var dir = ResolveFilePath(setting.FilePath, device, request.Programename, request.Lotno);
-                    _logger.LogInformation($"[DefectCount] Device={device} 目錄：{dir}");
-                    if (!Directory.Exists(dir))
+                    var shareRoot = setting.FilePath; // 必須為登入用的根目錄，不可加 LOTNO 子層
+                    _logger.LogInformation($"[DefectCount] Device={device} 嘗試登入共享目錄: {shareRoot} 使用帳號: {setting.PathAccount}");
+
+                    try
                     {
-                        _logger.LogWarning($"[DefectCount] 目錄不存在：{dir}");
-                        continue; 
+                        using (new NetworkShareAccesser(shareRoot, setting.PathAccount, setting.PathPassword))
+                        {
+                            if (!Directory.Exists(dir))
+                            {
+                                _logger.LogWarning($"[DefectCount] 目錄不存在：{dir}");
+                                continue;
+                            }
+
+                            foreach (var file in Directory.GetFiles(dir, "*.txt"))
+                            {
+                                _logger.LogInformation($"[DefectCount] 處理檔案：{file}");
+                                try
+                                {
+                                    var lines = File.ReadAllLines(file);
+                                    var values = DefectFileParser.ParseFile(lines, ruleMap);
+
+                                    values.TryGetValue("PASS", out int p);
+                                    values.TryGetValue("OPEN", out int o);
+                                    values.TryGetValue("SHORT", out int s);
+                                    values.TryGetValue("HVSHORT", out int hs);
+                                    values.TryGetValue("OPENSHORT", out int os);
+                                    values.TryGetValue("OPENHVSHORT", out int ohs);
+                                    values.TryGetValue("FOURLINEERROR", out int f);
+
+                                    pass += p;
+                                    open += o + os + ohs;
+                                    shorts += s + hs;
+                                    fourW += f;
+                                }
+                                catch (Exception ex)
+                                {
+                                    _logger.LogError($"[DefectCount] 檔案處理錯誤：{file}, 錯誤: {ex.Message}");
+                                }
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError($"[DefectCount] 登入共享目錄失敗 Device={device}, Path={shareRoot}, 錯誤: {ex.Message}");
+                        continue;
                     }
 
-                    foreach (var file in Directory.GetFiles(dir, "*.txt"))
-                    {
-                        _logger.LogInformation($"[DefectCount] 處理檔案：{file}");
-                        try
-                        {
-                            var lines = File.ReadAllLines(file);
-                            var values = DefectFileParser.ParseFile(lines, ruleMap);
 
-                            values.TryGetValue("PASS", out int p);
-                            values.TryGetValue("OPEN", out int o);
-                            values.TryGetValue("SHORT", out int s);
-                            values.TryGetValue("HVSHORT", out int hs);
-                            values.TryGetValue("OPENSHORT", out int os);
-                            values.TryGetValue("OPENHVSHORT", out int ohs);
-                            values.TryGetValue("FOURLINEERROR", out int f);
+                    //_logger.LogInformation($"[DefectCount] Device={device} 目錄：{dir}");
+                    //if (!Directory.Exists(dir))
+                    //{
+                    //    _logger.LogWarning($"[DefectCount] 目錄不存在：{dir}");
+                    //    continue; 
+                    //}
 
-                            pass += p;
-                            open += o + os + ohs;
-                            shorts += s + hs;
-                            fourW += f;
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger.LogError($"[DefectCount] 檔案處理錯誤：{file}, 錯誤: {ex.Message}");
-                        }
-                        //var lines = File.ReadAllLines(file);
-                        //var values = DefectFileParser.ParseFile(lines, ruleMap);
+                    //foreach (var file in Directory.GetFiles(dir, "*.txt"))
+                    //{
+                    //    _logger.LogInformation($"[DefectCount] 處理檔案：{file}");
+                    //    try
+                    //    {
+                    //        var lines = File.ReadAllLines(file);
+                    //        var values = DefectFileParser.ParseFile(lines, ruleMap);
 
-                        //values.TryGetValue("PASS", out int p);
-                        //values.TryGetValue("OPEN", out int o);
-                        //values.TryGetValue("SHORT", out int s);
-                        //values.TryGetValue("HVSHORT", out int hs);
-                        //values.TryGetValue("OPENSHORT", out int os);
-                        //values.TryGetValue("OPENHVSHORT", out int ohs);
-                        //values.TryGetValue("FOURLINEERROR", out int f);
+                    //        values.TryGetValue("PASS", out int p);
+                    //        values.TryGetValue("OPEN", out int o);
+                    //        values.TryGetValue("SHORT", out int s);
+                    //        values.TryGetValue("HVSHORT", out int hs);
+                    //        values.TryGetValue("OPENSHORT", out int os);
+                    //        values.TryGetValue("OPENHVSHORT", out int ohs);
+                    //        values.TryGetValue("FOURLINEERROR", out int f);
 
-                        //pass += p;
-                        //open += o + os + ohs;
-                        //shorts += s + hs;
-                        //fourW += f;
-                    }
+                    //        pass += p;
+                    //        open += o + os + ohs;
+                    //        shorts += s + hs;
+                    //        fourW += f;
+                    //    }
+                    //    catch (Exception ex)
+                    //    {
+                    //        _logger.LogError($"[DefectCount] 檔案處理錯誤：{file}, 錯誤: {ex.Message}");
+                    //    }
+                    //    //var lines = File.ReadAllLines(file);
+                    //    //var values = DefectFileParser.ParseFile(lines, ruleMap);
+
+                    //    //values.TryGetValue("PASS", out int p);
+                    //    //values.TryGetValue("OPEN", out int o);
+                    //    //values.TryGetValue("SHORT", out int s);
+                    //    //values.TryGetValue("HVSHORT", out int hs);
+                    //    //values.TryGetValue("OPENSHORT", out int os);
+                    //    //values.TryGetValue("OPENHVSHORT", out int ohs);
+                    //    //values.TryGetValue("FOURLINEERROR", out int f);
+
+                    //    //pass += p;
+                    //    //open += o + os + ohs;
+                    //    //shorts += s + hs;
+                    //    //fourW += f;
+                    //}
                 }
                 var response = new DefectCountResponse
                 {
