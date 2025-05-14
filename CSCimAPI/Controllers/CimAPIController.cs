@@ -60,28 +60,31 @@ namespace CimAPI.Controllers
 			return result.Result == "Ok" ? Ok(result) : BadRequest(result);
 		}
 
-		/// <summary>
-		/// LaserMarking功能
-		/// 
-		/// </summary>
-		/// <remarks>
-		/// <para>
-		/// {
-		///  "environment": "Production",
-		///  "action" : "GetConfigData",
-		///  "size": "",
-		///  "product": "2DP000000068",
-		///  "version": "AE",
-		///  "stepCode": "BTS000P1"
-		/// }
-		/// action:
-		/// 1. GetConfigData
-		/// 2. CheckConfigDataExists
-		/// 3. GenerateTileIds
-		/// </para>
-		/// </remarks>
+        /// <summary>
+        /// LaserMarking功能
+        /// 
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// {
+        ///  "environment": "Develop",
+        ///  "action" : "GenerateTileIds",
+		///  "lotno":"WB2025400086-A00064",
+        ///  "size": "",
+        ///  "product": "2DP000005408",
+        ///  "version": "A",
+        ///  "stepCode": "BTS00051"
+		///  "subbigqty":"96",
+		///  "customer":"OSRAM"
+        /// }
+        /// action:
+        /// 1. GetConfigData
+        /// 2. CheckConfigDataExists
+        /// 3. GenerateTileIds
+        /// </para>
+        /// </remarks>
 
-		[Route("[controller]/LaserMarking")]
+        [Route("[controller]/LaserMarking")]
 		[HttpPost]
 		public async Task<IActionResult> LaserMarking(
 			[FromBody] LaserMarkingRequest request)
@@ -129,27 +132,27 @@ namespace CimAPI.Controllers
 			}
 		}
 
-		/// <summary>
-		/// TestDefectCount功能
-		/// 
-		/// </summary>
-		/// <remarks>
-		/// <para>
-		///{
-		///  "environment": "Production",
-		///  "action": "DefectCount",
-		///  "programename": "1AM000005111",
-		///  "lotno": "WB2025500042-D00004",
-		///  "opno": "BTS00091"
-		///	}
-		/// action:
-		/// 1. CountDefects
-		/// </para>
-		/// </remarks>
-		/// 
+        /// <summary>
+        /// TestDefectCount功能
+        /// 
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        ///{
+        ///  "Environment": "Production",
+        ///  "Action": "DefectCount",
+        ///  "Programename": "1AM000005111",
+        ///  "Lotno": "WB2025500042-D00004",
+        ///  "OpNo": "BTS00091"
+        ///	}
+        /// action:
+        /// 1. CountDefects
+        /// </para>
+        /// </remarks>
+        /// 
 
 
-		[Route("[controller]/TestDefectCount")]
+        [Route("[controller]/TestDefectCount")]
         [HttpPost]
         public async Task<IActionResult> DefectCount([FromBody] DefectCountRequest request)
         {

@@ -94,12 +94,17 @@ namespace Infrastructure.Services
         {
             
             //20250422 改接兩個DB設定
-            var (oracleRepo, repository, _) = RepositoryHelper.CreateRepositories(request.Environment, _repositoryFactory);
+            var (oracleRepo, repository, mySqlProd) = RepositoryHelper.CreateRepositories(request.Environment, _repositoryFactory);
 
             // 2. 取得 Config（依據 request.Product）
             string configName = $"{request.Size}{request.Product}-{request.Version}-{request.StepCode}".Trim('-');
             
-            var config = await repository.QueryFirstOrDefaultAsync<Config>(
+            //var config = await repository.QueryFirstOrDefaultAsync<Config>(
+            //    "SELECT * FROM Config WHERE Config_Name = @ConfigName",
+            //    new { ConfigName = configName }
+            //);
+            //20250514 改撈正式MySQL
+            var config = await mySqlProd.QueryFirstOrDefaultAsync<Config>(
                 "SELECT * FROM Config WHERE Config_Name = @ConfigName",
                 new { ConfigName = configName }
             );
@@ -107,7 +112,12 @@ namespace Infrastructure.Services
                 return ApiReturn<string>.Failure("Config not found!");
 
             // 1.1 取得 CustomerConfig（依據 request.Customer）
-            var customerConfig = await repository.QueryFirstOrDefaultAsync<CustomerConfig>(
+            //var customerConfig = await repository.QueryFirstOrDefaultAsync<CustomerConfig>(
+            //    "SELECT * FROM CustomerConfig WHERE Customer = @Customer",
+            //    new { Customer = request.Customer }
+            //);
+            //20250514 改撈正式MySQL
+            var customerConfig = await mySqlProd.QueryFirstOrDefaultAsync<CustomerConfig>(
                 "SELECT * FROM CustomerConfig WHERE Customer = @Customer",
                 new { Customer = request.Customer }
             );

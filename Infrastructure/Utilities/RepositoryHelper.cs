@@ -21,7 +21,7 @@ namespace Infrastructure.Utilities
                 "Develop" => (
                     factory.CreateRepository("dboEmapTest"),
                     factory.CreateRepository("cim28"),
-					factory.CreateRepository("laserMarkingTest")
+					factory.CreateRepository("laserMarkingProd")
 				),
                 _ => throw new Exception("Unknown environment: " + environment)
 			};
