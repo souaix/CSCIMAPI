@@ -37,7 +37,7 @@ namespace Infrastructure.Services
 				string filename = setting.FILENAME.ToString().Replace("{LotNo}", request.LotNo);
 				string fullpath = Path.Combine(filepath, filename + setting.FILEEXT.ToString());
 
-				using (new NetworkShareAccesser(filepath, setting.PATHACCOUNT.ToString(), setting.PATHPASSWORD.ToString()))
+				using (new NetworkShareAccesser(filepath, setting.PATHACCOUNT.ToString(), setting.PATHPASSWORD.ToString(), retryCount: 3, retryDelayMs: 1000, disconnectOnDispose: false))
 				{
 					if (!File.Exists(fullpath))
 						return ApiReturn<YieldRecordDataResult>.Failure($"檔案不存在: {fullpath}");
