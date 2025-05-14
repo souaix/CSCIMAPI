@@ -108,7 +108,9 @@ namespace Infrastructure.Services
                     //var dir = Path.Combine(setting.FilePath, request.Lotno);
 
                     var dir = ResolveFilePath(setting.FilePath, device, request.Programename, request.Lotno);
-                    var shareRoot = setting.FilePath; // 必須為登入用的根目錄，不可加 LOTNO 子層
+                    //var shareRoot = setting.FilePath; // 必須為登入用的根目錄，不可加 LOTNO 子層
+                    string shareRoot = ExtractShareRoot(dir);// 必須為登入用的根目錄，不可加 LOTNO 子層
+                    //var shareRoot = dir; 
                     _logger.LogInformation($"[DefectCount] Device={device} 嘗試登入共享目錄: {shareRoot} 使用帳號: {setting.PathAccount}");
 
                     try
@@ -236,5 +238,21 @@ namespace Infrastructure.Services
                 .Replace("{PN}", pn)
                 .Replace("{LOTNO}", lotno);
         }
+
+        private string ExtractShareRoot(string fullPath)
+        {
+            // fullPath 範例：\\10.10.22.80\TNSF-Backend\TNSF-INK\Internal...
+            if (!fullPath.StartsWith(@"\\"))
+                throw new ArgumentException("不是有效的 UNC 路徑");
+
+            // 去掉前面的兩個反斜線，並拆分剩下部分
+            var parts = fullPath.Substring(2).Split('\\');
+
+            if (parts.Length < 2)
+                throw new ArgumentException("UNC 路徑結構錯誤，需至少有主機與共享資料夾");
+
+            return $@"\\{parts[0]}\{parts[1]}"; // 組回根目錄路徑
+        }
+
     }
 }
