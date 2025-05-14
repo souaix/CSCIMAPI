@@ -104,7 +104,7 @@ namespace Infrastructure.Services
                 new { ConfigName = configName }
             );
             if (config == null)
-                return ApiReturn<string>.Failure("Config 設定檔未找到!");
+                return ApiReturn<string>.Failure("Config not found!");
 
             // 1.1 取得 CustomerConfig（依據 request.Customer）
             var customerConfig = await repository.QueryFirstOrDefaultAsync<CustomerConfig>(
@@ -112,7 +112,7 @@ namespace Infrastructure.Services
                 new { Customer = request.Customer }
             );
             if (customerConfig == null)
-                return ApiReturn<string>.Failure("CustomerConfig 設定未找到!");
+                return ApiReturn<string>.Failure("CustomerConfig not found!");
 
             // 檢查 StepCode 是否存在於 opno_prefix
             bool stepCodeExistsInOpnoPrefix = await repository.QueryFirstOrDefaultAsync<bool>(
@@ -231,7 +231,7 @@ namespace Infrastructure.Services
             }
 
 			// 回傳成功，並帶出最後一筆正面 TileID
-			return ApiReturn<string>.Success("Tile ID 產生成功", topTileIds.Last());
+			return ApiReturn<string>.Success("Tile ID generated successfully.", topTileIds.Last());
 
             
         }
