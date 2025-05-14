@@ -41,9 +41,6 @@ namespace Infrastructure.Services
                 .Distinct()
                 .ToList();
 
-                //var ruleList = await repo.QueryAsync<ARGOCIMDEVICEFILERULE>(
-                //    "SELECT * FROM ARGOCIMDEVICEFILERULE WHERE DEVICENO IN :deviceIds AND ENABLED = 'Y'",
-                //    new { deviceIds });
                 var ruleList = await repo.QueryAsync<ARGOCIMDEVICEFILERULE>(
                 @"SELECT * FROM ARGOCIMDEVICEFILERULE 
                   WHERE ENABLED = 'Y'
@@ -52,7 +49,7 @@ namespace Infrastructure.Services
                 new { deviceIds, deviceGroupNos });
 
                 int pass = 0, open = 0, shorts = 0, fourW = 0;
-
+                bool anyDirFound = false;
                 foreach (var device in deviceIds)
                 {
                     var setting = fileSettingList.FirstOrDefault(f => f.DeviceNo == device);
@@ -78,11 +75,7 @@ namespace Infrastructure.Services
                         if (string.IsNullOrWhiteSpace(rule.RuleType) || string.IsNullOrWhiteSpace(rule.RuleJson))
                             continue;
 
-                        //if (!ruleMap.ContainsKey(rule.RuleType))
-                        //{
-                        //    var entry = JsonSerializer.Deserialize<RuleEntry>(rule.RuleJson);
-                        //    ruleMap[rule.RuleType] = entry;
-                        //}
+          
                         try
                         {
                             var entry = JsonSerializer.Deserialize<RuleEntry>(rule.RuleJson);
@@ -93,19 +86,7 @@ namespace Infrastructure.Services
                             _logger.LogError($"[DefectCount] 解析 JSON 規則錯誤 Device={device}, Type={rule.RuleType}, Error={ex.Message}");
                         }
                     }
-                    //var rule = ruleList.FirstOrDefault(r => r.DeviceNo == device);
-
-                    //if (setting == null || rule == null || string.IsNullOrWhiteSpace(rule.RuleJson))
-                    //    continue;
-
-                    //var ruleMap = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, RuleEntry>>(rule.RuleJson);
-                    //var ruleMap = ruleList
-                    //    .Where(r => !string.IsNullOrWhiteSpace(r.RuleJson) && !string.IsNullOrWhiteSpace(r.RuleType))
-                    //    .ToDictionary(
-                    //        r => r.RuleType,
-                    //        r => JsonSerializer.Deserialize<RuleEntry>(r.RuleJson)
-                    //    );
-                    //var dir = Path.Combine(setting.FilePath, request.Lotno);
+                    
 
                     var dir = ResolveFilePath(setting.FilePath, device, request.Programename, request.Lotno);
                     //var shareRoot = setting.FilePath; // 必須為登入用的根目錄，不可加 LOTNO 子層
@@ -136,6 +117,8 @@ namespace Infrastructure.Services
                                 _logger.LogWarning($"[DefectCount] 目錄不存在：{dir}");
                                 continue;
                             }
+
+                        anyDirFound = true; // 至少有一個成功找到
 
                         foreach (var file in Directory.GetFiles(dir, "*.txt"))
                         {
@@ -172,55 +155,14 @@ namespace Infrastructure.Services
                     }
 
 
-                    //_logger.LogInformation($"[DefectCount] Device={device} 目錄：{dir}");
-                    //if (!Directory.Exists(dir))
-                    //{
-                    //    _logger.LogWarning($"[DefectCount] 目錄不存在：{dir}");
-                    //    continue; 
-                    //}
-
-                    //foreach (var file in Directory.GetFiles(dir, "*.txt"))
-                    //{
-                    //    _logger.LogInformation($"[DefectCount] 處理檔案：{file}");
-                    //    try
-                    //    {
-                    //        var lines = File.ReadAllLines(file);
-                    //        var values = DefectFileParser.ParseFile(lines, ruleMap);
-
-                    //        values.TryGetValue("PASS", out int p);
-                    //        values.TryGetValue("OPEN", out int o);
-                    //        values.TryGetValue("SHORT", out int s);
-                    //        values.TryGetValue("HVSHORT", out int hs);
-                    //        values.TryGetValue("OPENSHORT", out int os);
-                    //        values.TryGetValue("OPENHVSHORT", out int ohs);
-                    //        values.TryGetValue("FOURLINEERROR", out int f);
-
-                    //        pass += p;
-                    //        open += o + os + ohs;
-                    //        shorts += s + hs;
-                    //        fourW += f;
-                    //    }
-                    //    catch (Exception ex)
-                    //    {
-                    //        _logger.LogError($"[DefectCount] 檔案處理錯誤：{file}, 錯誤: {ex.Message}");
-                    //    }
-                    //    //var lines = File.ReadAllLines(file);
-                    //    //var values = DefectFileParser.ParseFile(lines, ruleMap);
-
-                    //    //values.TryGetValue("PASS", out int p);
-                    //    //values.TryGetValue("OPEN", out int o);
-                    //    //values.TryGetValue("SHORT", out int s);
-                    //    //values.TryGetValue("HVSHORT", out int hs);
-                    //    //values.TryGetValue("OPENSHORT", out int os);
-                    //    //values.TryGetValue("OPENHVSHORT", out int ohs);
-                    //    //values.TryGetValue("FOURLINEERROR", out int f);
-
-                    //    //pass += p;
-                    //    //open += o + os + ohs;
-                    //    //shorts += s + hs;
-                    //    //fourW += f;
-                    //}
+                    
                 }
+
+                if (!anyDirFound)
+                {
+                    return ApiReturn<DefectCountResponse>.Failure("All device folders not found");
+                }
+
                 var response = new DefectCountResponse
                 {
                     PASS = pass,
@@ -229,19 +171,13 @@ namespace Infrastructure.Services
                     _4W = fourW
                 };
                 _logger.LogInformation($"[DefectCount] 計算完成: PASS={pass}, OPEN={open}, SHORT={shorts}, 4W={fourW}");
-                return ApiReturn<DefectCountResponse>.Success("計算完成", response);
-                //return ApiReturn<DefectCountResponse>.Success("計算完成", new DefectCountResponse
-                //{
-                //    PASS = pass,
-                //    OPEN = open,
-                //    SHORT = shorts,
-                //    _4W = fourW
-                //});
+                return ApiReturn<DefectCountResponse>.Success("Calculation completed", response);
+        
             }
             catch (Exception ex)
             {
                 _logger.LogError($"[DefectCount] 發生例外錯誤: {ex.Message}");
-                return ApiReturn<DefectCountResponse>.Failure("錯誤: " + ex.Message);
+                return ApiReturn<DefectCountResponse>.Failure("Error: " + ex.Message);
             }
         }
 
