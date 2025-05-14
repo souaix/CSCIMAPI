@@ -115,41 +115,41 @@ namespace Infrastructure.Services
 
                     try
                     {
-                        using (new NetworkShareAccesser(shareRoot, setting.PathAccount, setting.PathPassword, retryCount: 3, retryDelayMs: 1000, disconnectOnDispose: false))
-                        {
-                            if (!Directory.Exists(dir))
+						NetworkShareManager.EnsureConnected(shareRoot, setting.PathAccount, setting.PathPassword);
+
+						if (!Directory.Exists(dir))
                             {
                                 _logger.LogWarning($"[DefectCount] 目錄不存在：{dir}");
                                 continue;
                             }
 
-                            foreach (var file in Directory.GetFiles(dir, "*.txt"))
+                        foreach (var file in Directory.GetFiles(dir, "*.txt"))
+                        {
+                            _logger.LogInformation($"[DefectCount] 處理檔案：{file}");
+                            try
                             {
-                                _logger.LogInformation($"[DefectCount] 處理檔案：{file}");
-                                try
-                                {
-                                    var lines = File.ReadAllLines(file);
-                                    var values = DefectFileParser.ParseFile(lines, ruleMap);
+                                var lines = File.ReadAllLines(file);
+                                var values = DefectFileParser.ParseFile(lines, ruleMap);
 
-                                    values.TryGetValue("PASS", out int p);
-                                    values.TryGetValue("OPEN", out int o);
-                                    values.TryGetValue("SHORT", out int s);
-                                    values.TryGetValue("HVSHORT", out int hs);
-                                    values.TryGetValue("OPENSHORT", out int os);
-                                    values.TryGetValue("OPENHVSHORT", out int ohs);
-                                    values.TryGetValue("FOURLINEERROR", out int f);
+                                values.TryGetValue("PASS", out int p);
+                                values.TryGetValue("OPEN", out int o);
+                                values.TryGetValue("SHORT", out int s);
+                                values.TryGetValue("HVSHORT", out int hs);
+                                values.TryGetValue("OPENSHORT", out int os);
+                                values.TryGetValue("OPENHVSHORT", out int ohs);
+                                values.TryGetValue("FOURLINEERROR", out int f);
 
-                                    pass += p;
-                                    open += o + os + ohs;
-                                    shorts += s + hs;
-                                    fourW += f;
-                                }
-                                catch (Exception ex)
-                                {
-                                    _logger.LogError($"[DefectCount] 檔案處理錯誤：{file}, 錯誤: {ex.Message}");
-                                }
+                                pass += p;
+                                open += o + os + ohs;
+                                shorts += s + hs;
+                                fourW += f;
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger.LogError($"[DefectCount] 檔案處理錯誤：{file}, 錯誤: {ex.Message}");
                             }
                         }
+                       
                     }
                     catch (Exception ex)
                     {

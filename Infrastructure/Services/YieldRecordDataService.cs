@@ -25,8 +25,8 @@ namespace Infrastructure.Services
 
 				// 查詢路徑設定
 				var sql = @"SELECT FILEPATH, FILENAME, FILEEXT, PATHACCOUNT, PATHPASSWORD 
-                    FROM ARGOCIMDEVICEFILESETTING 
-                    WHERE DEVICEGROUPNO = 'YieldRecord' AND DEVICENO = 'None'";
+                            FROM ARGOCIMDEVICEFILESETTING 
+                            WHERE DEVICEGROUPNO = 'YieldRecord' AND DEVICENO = 'None'";
 
 				var setting = await repoCim.QueryFirstOrDefaultAsync<dynamic>(sql);
 
@@ -37,45 +37,45 @@ namespace Infrastructure.Services
 				string filename = setting.FILENAME.ToString().Replace("{LotNo}", request.LotNo);
 				string fullpath = Path.Combine(filepath, filename + setting.FILEEXT.ToString());
 
-				using (new NetworkShareAccesser(filepath, setting.PATHACCOUNT.ToString(), setting.PATHPASSWORD.ToString(), retryCount: 3, retryDelayMs: 1000, disconnectOnDispose: false))
+				// ✅ 使用 NetworkShareManager 確保連線一次，避免重複登入登出
+				NetworkShareManager.EnsureConnected(filepath, setting.PATHACCOUNT.ToString(), setting.PATHPASSWORD.ToString());
+
+				if (!File.Exists(fullpath))
+					return ApiReturn<YieldRecordDataResult>.Failure($"檔案不存在: {fullpath}");
+
+				var lines = await File.ReadAllLinesAsync(fullpath, Encoding.UTF8);
+
+				// 忽略前兩行（P/N 與標題）
+				var dataLines = lines.Skip(2);
+
+				var resultList = new List<YieldRecordDataDto>();
+
+				foreach (var line in dataLines)
 				{
-					if (!File.Exists(fullpath))
-						return ApiReturn<YieldRecordDataResult>.Failure($"檔案不存在: {fullpath}");
+					var parts = line.Split(',');
 
-					var lines = await File.ReadAllLinesAsync(fullpath, Encoding.UTF8);
+					if (parts.Length < 5)
+						continue;
 
-					// 忽略前兩行（P/N 與標題）
-					var dataLines = lines.Skip(2);
-
-					var resultList = new List<YieldRecordDataDto>();
-
-					foreach (var line in dataLines)
+					resultList.Add(new YieldRecordDataDto
 					{
-						var parts = line.Split(',');
-
-						if (parts.Length < 5)
-							continue;
-
-						resultList.Add(new YieldRecordDataDto
-						{
-							LotNo = parts[0].Trim(),
-							TileId = parts[1].Trim(),
-							GoodQty = int.TryParse(parts[2], out var gq) ? gq : 0,
-							BadQty = int.TryParse(parts[3], out var bq) ? bq : 0,
-							TotalQty = int.TryParse(parts[4], out var tq) ? tq : 0
-						});
-					}
-
-					var summary = new YieldRecordDataResult
-					{
-						Records = resultList,
-						GoodQtyTotal = resultList.Sum(x => x.GoodQty),
-						BadQtyTotal = resultList.Sum(x => x.BadQty),
-						TotalQtyTotal = resultList.Sum(x => x.TotalQty)
-					};
-
-					return ApiReturn<YieldRecordDataResult>.Success("讀取成功", summary);
+						LotNo = parts[0].Trim(),
+						TileId = parts[1].Trim(),
+						GoodQty = int.TryParse(parts[2], out var gq) ? gq : 0,
+						BadQty = int.TryParse(parts[3], out var bq) ? bq : 0,
+						TotalQty = int.TryParse(parts[4], out var tq) ? tq : 0
+					});
 				}
+
+				var summary = new YieldRecordDataResult
+				{
+					Records = resultList,
+					GoodQtyTotal = resultList.Sum(x => x.GoodQty),
+					BadQtyTotal = resultList.Sum(x => x.BadQty),
+					TotalQtyTotal = resultList.Sum(x => x.TotalQty)
+				};
+
+				return ApiReturn<YieldRecordDataResult>.Success("讀取成功", summary);
 			}
 			catch (Exception ex)
 			{
