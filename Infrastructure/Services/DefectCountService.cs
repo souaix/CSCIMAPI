@@ -115,7 +115,16 @@ namespace Infrastructure.Services
 
                     try
                     {
-						NetworkShareManager.EnsureConnected(shareRoot, setting.PathAccount, setting.PathPassword);
+#if DEBUG
+						// 不做掛載，使用現有 Windows 憑證 session
+						_logger.LogInformation($"[DebugMode] 跳過 NetworkShareManager 掛載，假設已登入共享：{shareRoot}");
+#else
+                        // Production 模式才進行登入掛載
+                        NetworkShareManager.EnsureConnected(shareRoot, setting.PathAccount, setting.PathPassword);
+#endif
+
+
+						//NetworkShareManager.EnsureConnected(shareRoot, setting.PathAccount, setting.PathPassword);
 
 						if (!Directory.Exists(dir))
                             {

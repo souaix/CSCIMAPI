@@ -11,10 +11,12 @@ namespace Infrastructure.Services
 	public class YieldRecordDataService : IYieldRecordDataService
 	{
 		private readonly IRepositoryFactory _repositoryFactory;
+		private readonly ILogger<YieldRecordDataService> _logger;
 
-		public YieldRecordDataService(IRepositoryFactory repositoryFactory)
+		public YieldRecordDataService(IRepositoryFactory repositoryFactory, ILogger<YieldRecordDataService> logger)
 		{
 			_repositoryFactory = repositoryFactory;
+			_logger = logger;
 		}
 
 		public async Task<ApiReturn<YieldRecordDataResult>> LoadYieldRecordDataAsync(YieldRecordDataRequest request)
@@ -37,8 +39,15 @@ namespace Infrastructure.Services
 				string filename = setting.FILENAME.ToString().Replace("{LotNo}", request.LotNo);
 				string fullpath = Path.Combine(filepath, filename + setting.FILEEXT.ToString());
 
+#if DEBUG
+				// 不做掛載，使用現有 Windows 憑證 session
+				_logger.LogInformation($"[DebugMode] 跳過 NetworkShareManager 掛載，假設已登入共享：{fullpath}");
+#else
 				// ✅ 使用 NetworkShareManager 確保連線一次，避免重複登入登出
 				NetworkShareManager.EnsureConnected(filepath, setting.PATHACCOUNT.ToString(), setting.PATHPASSWORD.ToString());
+#endif
+
+
 
 				if (!File.Exists(fullpath))
 					return ApiReturn<YieldRecordDataResult>.Failure($"檔案不存在: {fullpath}");
