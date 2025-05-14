@@ -115,7 +115,7 @@ namespace Infrastructure.Services
 
                     try
                     {
-                        using (new NetworkShareAccesser(shareRoot, setting.PathAccount, setting.PathPassword))
+                        using (new NetworkShareAccesser(shareRoot, setting.PathAccount, setting.PathPassword, retryCount: 3, retryDelayMs: 1000, disconnectOnDispose: false))
                         {
                             if (!Directory.Exists(dir))
                             {
