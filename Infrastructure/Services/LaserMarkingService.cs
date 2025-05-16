@@ -136,7 +136,7 @@ namespace Infrastructure.Services
             //var (topTileIds, topLotCreatorList, topLastSN) = await GenerateTileIds(request, config, customerConfig, isBackSide: false, repository);
             var (topTileIds, topLotCreatorList, originalLastSN, topLastSN) = await GenerateTileIds(request, config, customerConfig, isBackSide: false, repository, mySqlProd);
             // 4.2.6 呼叫 SaveLotCreatorData，儲存正面資料（LotNo 不加 B）
-            await SaveLotCreatorData(repository, request.LotNo, topLotCreatorList, request.StepCode);
+            await SaveLotCreatorData(repository, request.LotNo, topLotCreatorList, request.StepCode, mySqlProd);
             
             
 
@@ -211,7 +211,7 @@ namespace Infrastructure.Services
                 backLastSN = tempBackLastSN; // 這裡使用 tempBackLastSN 來避免衝突
 
 				// 5.3.1 呼叫 SaveLotCreatorData，儲存背面資料（LotNo 前面加上 B）
-				await SaveLotCreatorData(repository, "B" + request.LotNo, backLotCreatorList, request.StepCode);
+				await SaveLotCreatorData(repository, "B" + request.LotNo, backLotCreatorList, request.StepCode, mySqlProd);
               
 
                 // **取得背面 TileIDEnd，應該存入 TileText02 的最後一筆**
@@ -595,7 +595,7 @@ namespace Infrastructure.Services
         }
 
 
-        private async Task SaveLotCreatorData(IRepository repository, string lotNo, List<LotCreator> lotCreators, string stepCode)
+        private async Task SaveLotCreatorData(IRepository repository, string lotNo, List<LotCreator> lotCreators, string stepCode,IRepository mySqlProd)
         {
             // 查詢 opno_prefix，確認 stepCode 是否存在（控制 table 命名規則）
             bool stepCodeExists = await repository.QueryFirstOrDefaultAsync<string>(
@@ -685,10 +685,22 @@ namespace Infrastructure.Services
                         @CellText01, @CellText02, @CellText03, @CellText04, @CellText05,
                         @DotData, @Tile01Count, @Tile02Count, @Tile03Count, @Tile04Count, @Tile05Count)", lotCreator);
                 }
+
+                //20250516 增加寫入APICOMPARELOG by Max Yang
+                string insertLogSql = $@"
+                INSERT INTO APICOMPARELOG 
+                (Source, LotNo, Side, TableName, RowCount, TileIdStart, TileIdEnd, CreatedBy, CompareStatus, CompareNote)
+                VALUES 
+                ('API', '{lotNo}', '{(lotNo.StartsWith("B") ? "Back" : "Top")}', '{tableName}', {lotCreators.Count}, 
+                 '{lotCreators.FirstOrDefault()?.TileText01}', 
+                 '{lotCreators.LastOrDefault()?.TileText01}', 
+                 'LaserMarkingAPI', 'Pending', NULL);";
+
+                await mySqlProd.ExecuteAsync(insertLogSql);
             }
 
 
-           
+
         }
 
         private string GetTileIdEndFromPanelData(List<dynamic> panelRows, Config config)
