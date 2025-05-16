@@ -134,7 +134,7 @@ namespace Infrastructure.Services
             // **處理正面編碼**
             // 4.1 呼叫 GenerateTileIds，處理正面（isBackSide: false）
             //var (topTileIds, topLotCreatorList, topLastSN) = await GenerateTileIds(request, config, customerConfig, isBackSide: false, repository);
-            var (topTileIds, topLotCreatorList, originalLastSN, topLastSN) = await GenerateTileIds(request, config, customerConfig, isBackSide: false, repository);
+            var (topTileIds, topLotCreatorList, originalLastSN, topLastSN) = await GenerateTileIds(request, config, customerConfig, isBackSide: false, repository, mySqlProd);
             // 4.2.6 呼叫 SaveLotCreatorData，儲存正面資料（LotNo 不加 B）
             await SaveLotCreatorData(repository, request.LotNo, topLotCreatorList, request.StepCode);
             
@@ -206,7 +206,7 @@ namespace Infrastructure.Services
 			if (config.Side == 2)
             {
 				// 5.2 呼叫 GenerateTileIds，處理背面（isBackSide: true）
-				var (generatedBackTileIds, backLotCreatorList, topOriginalSN, tempBackLastSN) = await GenerateTileIds(request, config, customerConfig, isBackSide: true, repository, originalLastSN);
+				var (generatedBackTileIds, backLotCreatorList, topOriginalSN, tempBackLastSN) = await GenerateTileIds(request, config, customerConfig, isBackSide: true, repository, mySqlProd, originalLastSN);
                 backTileIds = generatedBackTileIds;
                 backLastSN = tempBackLastSN; // 這裡使用 tempBackLastSN 來避免衝突
 
@@ -297,16 +297,16 @@ namespace Infrastructure.Services
 
 
         private async Task<(List<string>, List<LotCreator>, string originalLastSN, string finalLastSN)> GenerateTileIds(LaserMarkingRequest request, Config config, CustomerConfig customerConfig, bool isBackSide,
-    IRepository repository,
+    IRepository repository, IRepository mySqlProd,
     string? initialLastSN = null)
         {
             var tileIds = new List<string>();
 
             var lotCreators = new List<LotCreator>();
             var existingTileIds = new HashSet<string>();
-            
 
 
+            //var (oracleRepo, repository, mySqlProd) = RepositoryHelper.CreateRepositories(request.Environment, _repositoryFactory);
 
             //--------自動替換 selectLastsn
             // 1. 建立完整對映字典（支援 YC, MC, DC, YY, WW 等）
@@ -352,7 +352,9 @@ namespace Infrastructure.Services
                     FROM Product
                     {whereClause}
                     LIMIT 1";
-                lastProduct = await repository.QueryFirstOrDefaultAsync<Product>(query);
+                //20250516 Product 改撈正式區 mySqlProd
+                //lastProduct = await repository.QueryFirstOrDefaultAsync<Product>(query);
+                lastProduct = await mySqlProd.QueryFirstOrDefaultAsync<Product>(query);
                 if (lastProduct != null &&
                     !string.IsNullOrEmpty(lastProduct.TileIDEnd) &&
                     string.IsNullOrEmpty(lastProduct.LastSN))
