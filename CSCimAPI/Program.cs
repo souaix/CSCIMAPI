@@ -52,39 +52,75 @@ builder.Services.AddSwaggerGen(c => {
 
 builder.Services.AddControllers();
 
-var dboEmapProdConnectionString = "Data Source=(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=192.168.20.120)(PORT=1521))(CONNECT_DATA=(SERVICE_NAME=emap)));User Id=dbo;Password=Memory1900;";
-var dboEmapTestConnectionString = "Data Source=(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=10.30.40.133)(PORT=1521))(CONNECT_DATA=(SERVICE_NAME=emap)));User Id=dbo;Password=Memory1900;";
-
-var csCimEmapProdConnectionString = "Data Source=(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=192.168.20.120)(PORT=1521))(CONNECT_DATA=(SERVICE_NAME=emap)));User Id=cscim;Password=cscim2025adm!;";
-var csCimEmapTestConnectionString = "Data Source=(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=10.30.40.133)(PORT=1521))(CONNECT_DATA=(SERVICE_NAME=emap)));User Id=cscim;Password=cscim2025adm!;";
-
-var laserMarkingNormalProdConnectionString = "Server=172.24.5.248;Database=theil_servernew;User=root;Password=;";
-var laserMarkingNormalTestConnectionString = "Server=10.12.1.148;Database=theil_servernew;User=root;Password=;";
-
-//龍潭廠100.28 CIM DB
-var cim28ConnectionString = "Server=10.21.100.28;Database=theil_servernew;User=thiler;Password=thil1234;";
-
-// 註冊 Factory
-builder.Services.AddSingleton<IRepositoryFactory>(
-	new RepositoryFactory(dboEmapProdConnectionString, dboEmapTestConnectionString,csCimEmapProdConnectionString,csCimEmapTestConnectionString, laserMarkingNormalProdConnectionString, laserMarkingNormalTestConnectionString, cim28ConnectionString));
-
-
-// 註冊命名服務支持
-builder.Services.AddSingleton<IEnumerable<KeyValuePair<string, object>>>(sp =>
+// 設定正式區與測試區的資料庫連線字串
+var databaseConfigs = new Dictionary<string, Dictionary<string, (string ConnectionString, string DbType)>>
 {
-	return new List<KeyValuePair<string, object>>
-	{
-		new KeyValuePair<string, object>("Prod", new OracleRepository(dboEmapProdConnectionString)),//舊版 暫時保留
-		new KeyValuePair<string, object>("Test", new OracleRepository(dboEmapTestConnectionString)),//舊版 暫時保留
-		new KeyValuePair<string, object>("dboEmapProd", new OracleRepository(dboEmapProdConnectionString)),
-		new KeyValuePair<string, object>("dboEmapTest", new OracleRepository(dboEmapTestConnectionString)),
-		new KeyValuePair<string, object>("CsCimEmapProd", new OracleRepository(csCimEmapProdConnectionString)),
-		new KeyValuePair<string, object>("CsCimEmapTest", new OracleRepository(csCimEmapTestConnectionString)),
-		new KeyValuePair<string, object>("laserMarkingNormalProd", new MySqlRepository(laserMarkingNormalProdConnectionString)),
-		new KeyValuePair<string, object>("laserMarkingNormalTest", new MySqlRepository(laserMarkingNormalTestConnectionString)),
-		new KeyValuePair<string, object>("cim28", new MySqlRepository(cim28ConnectionString))
-	};
-});
+    // 🔹 正式區資料庫 (envProduction)
+    { "Production", new Dictionary<string, (string, string)>
+		{
+			{ "cim28", ("Server=10.21.100.28;Database=theil_servernew;User=thiler;Password=thil1234;", "MySQL") },
+			{ "CsCimEmap", ("Data Source=(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=192.168.20.120)(PORT=1521))(CONNECT_DATA=(SERVICE_NAME=emap)));User Id=cscim;Password=cscim2025adm!;", "Oracle") },
+			{ "DboEmap", ("Data Source=(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=192.168.20.120)(PORT=1521))(CONNECT_DATA=(SERVICE_NAME=emap)));User Id=dbo;Password=Memory1900;", "Oracle") },
+			{ "LaserMarkingNormal", ("Server=172.24.5.248;Database=theil_servernew;User=root;Password=;", "MySQL") },
+			{ "LaserMarkingFrontend", ("Server=172.24.101.42;Database=theil_base_server;User=root;Password=;", "MySQL") }
+		}
+	},
+
+	// 🔹 測試區資料庫 (envTest)
+	{ "Test", new Dictionary<string, (string, string)>
+		{
+			{ "cim28", ("Server=10.21.100.28;Database=theil_servernew;User=thiler;Password=thil1234;", "MySQL") },
+			{ "CsCimEmap", ("Data Source=(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=10.30.40.133)(PORT=1521))(CONNECT_DATA=(SERVICE_NAME=emap)));User Id=cscim;Password=cscim2025adm!;", "Oracle") },
+			{ "DboEmap", ("Data Source=(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=10.30.40.133)(PORT=1521))(CONNECT_DATA=(SERVICE_NAME=emap)));User Id=dbo;Password=Memory1900;", "Oracle") },
+			{ "LaserMarkingNormal", ("Server=10.12.1.148;Database=theil_servernew;User=root;Password=;", "MySQL") },
+			{ "LaserMarkingFrontend", ("Server=10.21.100.28;Database=theil_base_server;User=thiler;Password=thil1234;", "MySQL") }
+
+		}
+		}
+	}
+};
+Environment.SetEnvironmentVariable("NLS_LANG", "AMERICAN_AMERICA.AL32UTF8");
+
+// 註冊 RepositoryFactory，支援多個資料庫
+builder.Services.AddSingleton<IRepositoryFactory>(new RepositoryFactory(databaseConfigs));
+
+
+//var dboEmapProdConnectionString = "Data Source=(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=192.168.20.120)(PORT=1521))(CONNECT_DATA=(SERVICE_NAME=emap)));User Id=dbo;Password=Memory1900;";
+//var dboEmapTestConnectionString = "Data Source=(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=10.30.40.133)(PORT=1521))(CONNECT_DATA=(SERVICE_NAME=emap)));User Id=dbo;Password=Memory1900;";
+
+//var csCimEmapProdConnectionString = "Data Source=(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=192.168.20.120)(PORT=1521))(CONNECT_DATA=(SERVICE_NAME=emap)));User Id=cscim;Password=cscim2025adm!;";
+//var csCimEmapTestConnectionString = "Data Source=(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=10.30.40.133)(PORT=1521))(CONNECT_DATA=(SERVICE_NAME=emap)));User Id=cscim;Password=cscim2025adm!;";
+
+//var laserMarkingNormalProdConnectionString = "Server=172.24.5.248;Database=theil_servernew;User=root;Password=;";
+//var laserMarkingNormalTestConnectionString = "Server=10.12.1.148;Database=theil_servernew;User=root;Password=;";
+
+//var laserMarkingCO2ProdConnectionString = "Server=172.24.101.42;Database=theil_base_server;User=root;Password=;";
+
+////龍潭廠100.28 CIM DB
+//var cim28ConnectionString = "Server=10.21.100.28;Database=theil_servernew;User=thiler;Password=thil1234;";
+
+//// 註冊 Factory
+//builder.Services.AddSingleton<IRepositoryFactory>(
+//	new RepositoryFactory(dboEmapProdConnectionString, dboEmapTestConnectionString,csCimEmapProdConnectionString,csCimEmapTestConnectionString, laserMarkingNormalProdConnectionString, laserMarkingNormalTestConnectionString, laserMarkingCO2ProdConnectionString, cim28ConnectionString));
+
+
+//// 註冊命名服務支持
+//builder.Services.AddSingleton<IEnumerable<KeyValuePair<string, object>>>(sp =>
+//{
+//	return new List<KeyValuePair<string, object>>
+//	{
+//		new KeyValuePair<string, object>("Prod", new OracleRepository(dboEmapProdConnectionString)),//舊版 暫時保留
+//		new KeyValuePair<string, object>("Test", new OracleRepository(dboEmapTestConnectionString)),//舊版 暫時保留
+//		new KeyValuePair<string, object>("dboEmapProd", new OracleRepository(dboEmapProdConnectionString)),
+//		new KeyValuePair<string, object>("dboEmapTest", new OracleRepository(dboEmapTestConnectionString)),
+//		new KeyValuePair<string, object>("CsCimEmapProd", new OracleRepository(csCimEmapProdConnectionString)),
+//		new KeyValuePair<string, object>("CsCimEmapTest", new OracleRepository(csCimEmapTestConnectionString)),
+//		new KeyValuePair<string, object>("laserMarkingNormalProd", new MySqlRepository(laserMarkingNormalProdConnectionString)),
+//		new KeyValuePair<string, object>("laserMarkingNormalTest", new MySqlRepository(laserMarkingNormalTestConnectionString)),
+//		new KeyValuePair<string, object>("laserMarkingCO2Prod", new MySqlRepository(laserMarkingCO2ProdConnectionString)),
+//		new KeyValuePair<string, object>("cim28", new MySqlRepository(cim28ConnectionString))
+//	};
+//});
 
 //Scrutor自動掃描註冊
 builder.Services.Scan(scan => scan

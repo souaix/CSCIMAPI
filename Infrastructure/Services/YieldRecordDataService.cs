@@ -23,8 +23,11 @@ namespace Infrastructure.Services
 		{
 			try
 			{
-				var (_, repoCim, _) = RepositoryHelper.CreateRepositories(request.Environment, _repositoryFactory);
-
+				//var (_, repoCim, _) = RepositoryHelper.CreateRepositories(request.Environment, _repositoryFactory);
+				var repositories = RepositoryHelper.CreateRepositories(request.Environment, _repositoryFactory);
+				// 使用某個特定的資料庫
+				var repoCim = repositories["CsCimEmap"];
+				
 				// 查詢路徑設定
 				var sql = @"SELECT FILEPATH, FILENAME, FILEEXT, PATHACCOUNT, PATHPASSWORD 
                             FROM ARGOCIMDEVICEFILESETTING 

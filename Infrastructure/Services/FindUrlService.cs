@@ -21,7 +21,11 @@ namespace Infrastructure.Services // ✅ 加上 namespace
 
 		public async Task<string?> GetUrlByIdAsync(string urlId, string environment)
 		{
-			var (_, repository, _) = RepositoryHelper.CreateRepositories(environment, _repositoryFactory);//cim			
+			//var (_, repository, _) = RepositoryHelper.CreateRepositories(environment, _repositoryFactory);//cim			
+			var repositories = RepositoryHelper.CreateRepositories(environment, _repositoryFactory);
+			// 使用某個特定的資料庫
+			var repository = repositories["CsCimEmap"];
+
 			string query = "SELECT URL FROM ARGOCIMURLMAPPING WHERE URLID = :UrlId";
 			return await repository.QueryFirstOrDefaultAsync<string>(query, new { UrlId = urlId });
 		}

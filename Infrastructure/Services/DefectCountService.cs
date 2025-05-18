@@ -23,10 +23,14 @@ namespace Infrastructure.Services
             try
             {
                 _logger.LogInformation($"[DefectCount] 開始處理 Request: Env={request.Environment}, PN={request.Programename}, Lot={request.Lotno}, OpNo={request.OpNo}");
-                //var repo = _repositoryFactory.CreateRepository(request.Environment);
-                var (oracleRepo, repo, _) = RepositoryHelper.CreateRepositories(request.Environment, _repositoryFactory);
+				//var repo = _repositoryFactory.CreateRepository(request.Environment);
+				//var (oracleRepo, repo, _) = RepositoryHelper.CreateRepositories(request.Environment, _repositoryFactory);
+				var repositories = RepositoryHelper.CreateRepositories(request.Environment, _repositoryFactory);
+				// 使用某個特定的資料庫
+				var oracleRepo = repositories["DboEmap"];
+				var repo = repositories["CsCimEmap"];
 
-                var (opnos, deviceIds) = await OpnoQueryModelHelper.ResolveQueryModeAsync(repo, request.OpNo, "");
+				var (opnos, deviceIds) = await OpnoQueryModelHelper.ResolveQueryModeAsync(repo, request.OpNo, "");
 
                 _logger.LogInformation($"[DefectCount] 解析出 Steps: {string.Join(", ", opnos)}");
                 _logger.LogInformation($"[DefectCount] 解析出 Devices: {string.Join(", ", deviceIds)}");

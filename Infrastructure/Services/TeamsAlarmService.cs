@@ -9,6 +9,7 @@ using Core.Entities.Public;
 using Microsoft.Extensions.Logging;
 using Core.Entities.TeamsAlarm;
 using Infrastructure.Utilities;
+using Org.BouncyCastle.Ocsp;
 
 namespace Infrastructure.Services
 {
@@ -68,7 +69,10 @@ namespace Infrastructure.Services
 		{
 			var notifyGroup = request.NotifyGroup;
 			var message = request.Message;
-			var (_, repository, _) = RepositoryHelper.CreateRepositories(request.Environment, _repositoryFactory);//cim			
+			//var (_, repository, _) = RepositoryHelper.CreateRepositories(request.Environment, _repositoryFactory);//cim			
+			var repositories = RepositoryHelper.CreateRepositories(request.Environment, _repositoryFactory);
+			// 使用某個特定的資料庫
+			var repository = repositories["CsCimEmap"];
 
 			var config = await repository.QueryFirstOrDefaultAsync<(string TEAMS, string TEAMSAPIURI)>(
 				"SELECT TEAMS, TEAMSAPIURI FROM ARGOCIMNOTIFYCONFIG WHERE NOTIFYGROUP = :notifyGroup",
