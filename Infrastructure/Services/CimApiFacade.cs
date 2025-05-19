@@ -75,7 +75,7 @@ namespace Infrastructure.Services
 			return _leakageCheckService.LeakageCheckAsync(request);
 		}
 
-		public async Task<ApiReturn<bool>> GenerateFrontendTileIdsAsync(LaserMarkingFrontendRequest request)
+		public async Task<ApiReturn<LaserMarkingFrontendProduct>> GenerateFrontendTileIdsAsync(LaserMarkingFrontendRequest request)
 		{
 			return await _laserMarkingFrontendService.GenerateFrontendTileIdsAsync(request);
 		}

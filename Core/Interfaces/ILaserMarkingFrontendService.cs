@@ -5,6 +5,6 @@ namespace Core.Interfaces
 {
 	public interface ILaserMarkingFrontendService
 	{
-		Task<ApiReturn<bool>> GenerateFrontendTileIdsAsync(LaserMarkingFrontendRequest request);
+		Task<ApiReturn<LaserMarkingFrontendProduct>> GenerateFrontendTileIdsAsync(LaserMarkingFrontendRequest request);
 	}
 }
