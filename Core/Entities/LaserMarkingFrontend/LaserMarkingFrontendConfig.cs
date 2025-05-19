@@ -2,7 +2,7 @@
 
 namespace Core.Entities.LaserMarkingFrontend
 {
-	public class Config
+	public class LaserMarkingFrontendConfig
 	{
 		[Key]
 		public string? Item { get; set; }                  // 對照表類型: Machine / Year / Month / Day

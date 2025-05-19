@@ -21,6 +21,7 @@ using Core.Entities.DefectCount;
 using Core.Entities.Scada;
 using Infrastructure.Data.Factories;
 using Infrastructure.Utilities;
+using Core.Entities.LaserMarkingFrontend;
 
 namespace CimAPI.Controllers
 {
@@ -134,27 +135,76 @@ namespace CimAPI.Controllers
 			}
 		}
 
-        /// <summary>
-        /// TestDefectCount功能
-        /// 
-        /// </summary>
-        /// <remarks>
-        /// <para>
-        ///{
-        ///  "Environment": "Production",
-        ///  "Action": "DefectCount",
-        ///  "Programename": "1AM000005111",
-        ///  "Lotno": "WB2025500042-D00004",
-        ///  "OpNo": "BTS00091"
-        ///	}
-        /// action:
-        /// 1. CountDefects
-        /// </para>
-        /// </remarks>
-        /// 
+		/// <summary>
+		/// LaserMarkingFrontend 功能
+		/// </summary>
+		/// <remarks>
+		/// <para>
+		/// {
+		///  "environment": "Test",
+		///  "action":"CREATE",
+		///  "lotno": "WB2025400255-A00002",
+		///  "eqno": "LS-030",
+		///  "qty": 46,
+		///  "productno": "1DP000005433",
+		///  "checkouttime": "2025-05-12T08:00:00"
+		/// }
+		/// </para>
+		/// </remarks>
+
+		[Route("[controller]/LaserMarkingFrontend")]
+		[HttpPost]
+		public async Task<IActionResult> LaserMarkingFrontend([FromBody] LaserMarkingFrontendRequest request)
+		{
+			if (request == null ||
+				string.IsNullOrWhiteSpace(request.Environment) ||
+				string.IsNullOrWhiteSpace(request.LotNo) ||
+				string.IsNullOrWhiteSpace(request.EqNo) ||
+				string.IsNullOrWhiteSpace(request.ProductNo) ||
+				request.CheckoutTime == default ||
+				request.Qty <= 0 || double.IsNaN(request.Qty)
+)
+			{
+				return BadRequest(ApiReturn<string>.Failure("參數不完整"));
+			}
+
+			object result;
+
+			if (request.Action == "CREATE")
+			{
+				result = await _facade.GenerateFrontendTileIdsAsync(request);
+			}
+			else
+			{
+				return BadRequest(ApiReturn<string>.Failure("Action參數不完整"));
+			}
+
+			return Ok(result);
 
 
-        [Route("[controller]/TestDefectCount")]
+		}
+
+		/// <summary>
+		/// TestDefectCount功能
+		/// 
+		/// </summary>
+		/// <remarks>
+		/// <para>
+		///{
+		///  "Environment": "Production",
+		///  "Action": "DefectCount",
+		///  "Programename": "1AM000005111",
+		///  "Lotno": "WB2025500042-D00004",
+		///  "OpNo": "BTS00091"
+		///	}
+		/// action:
+		/// 1. CountDefects
+		/// </para>
+		/// </remarks>
+		/// 
+
+
+		[Route("[controller]/TestDefectCount")]
         [HttpPost]
         public async Task<IActionResult> DefectCount([FromBody] DefectCountRequest request)
         {
