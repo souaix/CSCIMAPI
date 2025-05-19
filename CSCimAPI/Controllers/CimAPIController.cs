@@ -69,7 +69,7 @@ namespace CimAPI.Controllers
         /// <remarks>
         /// <para>
         /// {
-        ///  "environment": "Develop",
+        ///  "environment": "Test",
         ///  "action" : "GenerateTileIds",
 		///  "lotno":"WB2025400086-A00064",
         ///  "size": "",
