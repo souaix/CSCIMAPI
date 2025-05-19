@@ -10,6 +10,7 @@ using Core.Entities.Recipe2DCodeGenerator;
 using Core.Entities.YieldRecordData;
 using Core.Entities.DefectCount;
 using Core.Entities.Scada;
+using Core.Entities.LaserMarkingFrontend;
 
 
 namespace Infrastructure.Services
@@ -18,6 +19,7 @@ namespace Infrastructure.Services
 	{
 		private readonly IInsertWipDataService _insertWipDataService;
 		private readonly ILaserMarkingService _laserMarkingService;
+		private readonly ILaserMarkingFrontendService _laserMarkingFrontendService;
 		private readonly ILeakageCheckService _leakageCheckService;
 		private readonly ITeamsAlarmService _teamsAlarmService;
 		private readonly IMailSenderService _mailSenderService;
@@ -30,6 +32,7 @@ namespace Infrastructure.Services
         public CimApiFacade(
 			IInsertWipDataService insertWipDataService,
 			ILaserMarkingService laserMarkingService,
+			ILaserMarkingFrontendService laserMarkingFrontendService,
 			ILeakageCheckService leakageCheckService,
 			ITeamsAlarmService teamsAlarmService,
 			IMailSenderService mailSenderService,
@@ -41,6 +44,7 @@ namespace Infrastructure.Services
 		{
 			_insertWipDataService = insertWipDataService;
 			_laserMarkingService = laserMarkingService;
+			_laserMarkingFrontendService = laserMarkingFrontendService;
 			_leakageCheckService = leakageCheckService;
 			_teamsAlarmService = teamsAlarmService;
 			_mailSenderService = mailSenderService;
@@ -69,6 +73,11 @@ namespace Infrastructure.Services
 		public Task<ApiReturn<List<LeakageAnomalyDto>>> LeakageCheckAsync(LeakageCheckRequest request)
 		{
 			return _leakageCheckService.LeakageCheckAsync(request);
+		}
+
+		public async Task<ApiReturn<bool>> GenerateFrontendTileIdsAsync(LaserMarkingFrontendRequest request)
+		{
+			return await _laserMarkingFrontendService.GenerateFrontendTileIdsAsync(request);
 		}
 
 		public Task<ApiReturn<List<LeakageRawDataDto>>> LeakageSelectAsync(LeakageCheckRequest request)
@@ -124,5 +133,6 @@ namespace Infrastructure.Services
 				return ApiReturn<bool>.Failure($"例外錯誤：{ex.Message}");
 			}
 		}
+
 	}
 }

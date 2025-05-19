@@ -2,7 +2,7 @@
 
 namespace Core.Entities.LaserMarkingFrontend
 {
-	public class Product
+	public class LaserMarkingFrontendProduct
 	{
 		[Key]
 		public string? LotNO { get; set; }              // 批號

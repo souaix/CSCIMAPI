@@ -1,6 +1,6 @@
 ﻿namespace Core.Entities.LaserMarkingFrontend
 {
-	public class LotNo
+	public class LaserMarkingFrontendLotNo
 	{
 		public string? TileID { get; set; }                  // Tile ID
 		public string? MachineID { get; set; }               // 機台 ID
