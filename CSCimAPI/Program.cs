@@ -76,7 +76,6 @@ var databaseConfigs = new Dictionary<string, Dictionary<string, (string Connecti
 			{ "LaserMarkingFrontend", ("Server=10.21.100.28;Database=theil_base_server;User=thiler;Password=thil1234;", "MySQL") }
 
 		}
-		}
 	}
 };
 Environment.SetEnvironmentVariable("NLS_LANG", "AMERICAN_AMERICA.AL32UTF8");
