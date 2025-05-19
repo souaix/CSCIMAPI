@@ -31,7 +31,7 @@ namespace Infrastructure.Services
 			_repositoryFactory = repositoryFactory;
 		}
 
-		public async Task<ApiReturn<bool>> GenerateFrontendTileIdsAsync(LaserMarkingFrontendRequest request)
+		public async Task<ApiReturn<LaserMarkingFrontendProduct>> GenerateFrontendTileIdsAsync(LaserMarkingFrontendRequest request)
 		{
 			try
 			{
@@ -87,11 +87,11 @@ namespace Infrastructure.Services
 				// 7.寫入 table product
 				await productService.UpsertProductRecord(product, request.ProductNo);
 
-				return ApiReturn<bool>.Success("操作成功!", true);
+				return ApiReturn<LaserMarkingFrontendProduct>.Success("操作成功!", product);
 			}
 			catch (Exception ex)
 			{
-				return ApiReturn<bool>.Failure(ex.Message); // 回傳錯誤訊息
+				return ApiReturn<LaserMarkingFrontendProduct>.Failure(ex.Message); // 回傳錯誤訊息
 			}
 		}
 	}
