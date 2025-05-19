@@ -14,16 +14,16 @@ namespace Infrastructure.Services
 {
     public class LaserMarkingService : ILaserMarkingService
     {
-        private readonly IRepositoryFactory _repositoryFactory;
+		private readonly IRepositoryFactory _repositoryFactory;
 
-        public LaserMarkingService(IRepositoryFactory repositoryFactory)
+		public LaserMarkingService(IRepositoryFactory repositoryFactory)
         {
             _repositoryFactory = repositoryFactory;
-        }
+		}
 
         public async Task<ApiReturn<IEnumerable<Config>>> GetConfigDataAsync(LaserMarkingRequest request)
         {
-            if (request.Product.Length < 4)
+			if (request.Product.Length < 4)
                 return ApiReturn<IEnumerable<Config>>.Failure($"{request.Product} 輸入有誤！");
 
             if (string.IsNullOrEmpty(request.Environment) || string.IsNullOrEmpty(request.Product))
@@ -31,11 +31,14 @@ namespace Infrastructure.Services
 
             string configName = $"{request.Size}{request.Product}-{request.Version}-{request.StepCode}".Trim('-');
 
-            //var repository = _repositoryFactory.CreateRepository(request.Environment);
-            var (_, _, repoLaser) = RepositoryHelper.CreateRepositories(request.Environment, _repositoryFactory);
+			//var repository = _repositoryFactory.CreateRepository(request.Environment);
+			//var (_, _, repoLaser) = RepositoryHelper.CreateRepositories(request.Environment, _repositoryFactory);
+			var repositories = RepositoryHelper.CreateRepositories(request.Environment, _repositoryFactory);
+			// 使用某個特定的資料庫
+			var repoLaser = repositories["LaserMarkingNormal"];
 
-            //string sql = $"SELECT * FROM CONFIG WHERE CONFIG_NAME = '{configName}'";
-            string sql = @"SELECT 
+			//string sql = $"SELECT * FROM CONFIG WHERE CONFIG_NAME = '{configName}'";
+			string sql = @"SELECT 
                     CONFIG_NAME AS ConfigName,
                     CUSTOMER AS Customer,
                     SIDE AS Side,
@@ -94,10 +97,15 @@ namespace Infrastructure.Services
         {
             
             //20250422 改接兩個DB設定
-            var (oracleRepo, repository, mySqlProd) = RepositoryHelper.CreateRepositories(request.Environment, _repositoryFactory);
+            //var (oracleRepo, repository, mySqlProd) = RepositoryHelper.CreateRepositories(request.Environment, _repositoryFactory);
+			var repositories = RepositoryHelper.CreateRepositories(request.Environment, _repositoryFactory);
+			// 使用某個特定的資料庫
+			var oracleRepo = repositories["DboEmap"];
+			var repository = repositories["CsCimEmap"];
+			var mySqlProd = repositories["LaserMarkingNormal"];
 
-            // 2. 取得 Config（依據 request.Product）
-            string configName = $"{request.Size}{request.Product}-{request.Version}-{request.StepCode}".Trim('-');
+			// 2. 取得 Config（依據 request.Product）
+			string configName = $"{request.Size}{request.Product}-{request.Version}-{request.StepCode}".Trim('-');
             
             //var config = await repository.QueryFirstOrDefaultAsync<Config>(
             //    "SELECT * FROM Config WHERE Config_Name = @ConfigName",

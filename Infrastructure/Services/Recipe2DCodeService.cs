@@ -36,7 +36,10 @@ namespace Infrastructure.Services
 			byte[] dmBytes = DataMatrixHelper.GenerateDataMatrix(combined);
 
 			//var repo = _repositoryFactory.CreateRepository(req.Environment);
-			var (_, repo, _) = RepositoryHelper.CreateRepositories(req.Environment, _repositoryFactory);
+			//var (_, repo, _) = RepositoryHelper.CreateRepositories(req.Environment, _repositoryFactory);
+			var repositories = RepositoryHelper.CreateRepositories(req.Environment, _repositoryFactory);
+			// 使用某個特定的資料庫
+			var repo = repositories["CsCimEmap"];
 
 			string sql = @"
 							MERGE INTO ARGOMESRECIPE2DCODE T

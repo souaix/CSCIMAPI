@@ -25,7 +25,10 @@ namespace Infrastructure.Services
 			var title = request.TITLE;
 			var message = request.CONTEXT;
 
-			var (_, repository, _) = RepositoryHelper.CreateRepositories(request.Environment, _repositoryFactory);			
+			//var (_, repository, _) = RepositoryHelper.CreateRepositories(request.Environment, _repositoryFactory);
+			var repositories = RepositoryHelper.CreateRepositories(request.Environment, _repositoryFactory);
+			// 使用某個特定的資料庫
+			var repository = repositories["CsCimEmap"];
 
 			// 檢查 MAIL 通知開關
 			var mailSwitch = await repository.QueryFirstOrDefaultAsync<string>(

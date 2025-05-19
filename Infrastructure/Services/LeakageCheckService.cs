@@ -10,6 +10,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Infrastructure.Utilities;
 using Core.Entities.LotTileCheck;
+using Microsoft.Extensions.Hosting;
 
 namespace Infrastructure.Services
 {
@@ -28,7 +29,11 @@ namespace Infrastructure.Services
 		{
 			_logger.LogInformation($"[LeakageCheck] Request - lotno: {request.Lotno}, opno: {request.Opno}, deviceid: {request.Deviceid}, diff: {request.Diff}");
 
-			var (repoDbo, repoCim, _) = RepositoryHelper.CreateRepositories(request.Environment, _repositoryFactory);			
+			//var (repoDbo, repoCim, _) = RepositoryHelper.CreateRepositories(request.Environment, _repositoryFactory);
+			var repositories = RepositoryHelper.CreateRepositories(request.Environment, _repositoryFactory);
+			// 使用某個特定的資料庫
+			var repoDbo = repositories["DboEmap"];
+			var repoCim = repositories["CsCimEmap"];
 			var (opnosToQuery, deviceIdsToQuery) = await OpnoQueryModelHelper.ResolveQueryModeAsync(repoCim, request.Opno, request.Deviceid);
 
 
@@ -108,7 +113,11 @@ namespace Infrastructure.Services
 		{
 			_logger.LogInformation($"[LeakageSelect] Request - lotno: {request.Lotno}, opno: {request.Opno}, deviceid: {request.Deviceid}");
 
-			var (repoDbo, repoCim, _) = RepositoryHelper.CreateRepositories(request.Environment, _repositoryFactory);
+			//var (repoDbo, repoCim, _) = RepositoryHelper.CreateRepositories(request.Environment, _repositoryFactory);
+			var repositories = RepositoryHelper.CreateRepositories(request.Environment, _repositoryFactory);
+			// 使用某個特定的資料庫
+			var repoDbo = repositories["DboEmap"];
+			var repoCim = repositories["CsCimEmap"];
 			var (opnosToQuery, deviceIdsToQuery) = await OpnoQueryModelHelper.ResolveQueryModeAsync(repoCim, request.Opno, request.Deviceid);
 
 			var rules = (await repoCim.QueryAsync<RuleCheckDefinition>(

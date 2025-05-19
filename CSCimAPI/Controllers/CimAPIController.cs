@@ -19,6 +19,8 @@ using System;
 using Core.Entities.YieldRecordData;
 using Core.Entities.DefectCount;
 using Core.Entities.Scada;
+using Infrastructure.Data.Factories;
+using Infrastructure.Utilities;
 
 namespace CimAPI.Controllers
 {
@@ -437,7 +439,10 @@ namespace CimAPI.Controllers
 				}
 				else if(request.Action == "DOWNLOAD")
 				{
-					var repo = _RepositoryFactory.CreateRepository(request.Environment);
+					//var repo = _RepositoryFactory.CreateRepository(request.Environment);
+					var repositories = RepositoryHelper.CreateRepositories(request.Environment, _RepositoryFactory);
+					var repo = repositories["CsCimEmap"];
+				
 					var sql = "SELECT RECIPE2DCODE FROM ARGOMESRECIPE2DCODE WHERE LOTNO = :Lotno";
 					var result = await repo.QueryFirstOrDefaultAsync<byte[]>(sql, new { Lotno = request.Lotno });
 

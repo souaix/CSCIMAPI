@@ -2,6 +2,7 @@
 using Core.Entities.Public;
 using Core.Entities.DboEmap;
 using Core.Utilities;
+using Infrastructure.Utilities;
 
 namespace Infrastructure.Services
 {
@@ -19,7 +20,10 @@ namespace Infrastructure.Services
 			if (!Utils.IsValidTableName(tableName))
 				return ApiReturn<int>.Failure("Invalid table name.");
 
-			var repository = _repositoryFactory.CreateRepository(environment);
+			//var repository = _repositoryFactory.CreateRepository(environment);
+			var repositories = RepositoryHelper.CreateRepositories(environment, _repositoryFactory);
+			// 使用某個特定的資料庫
+			var repository = repositories["CsCimEmap"];
 
 			string sql = @"
                 INSERT INTO {tableName} (
