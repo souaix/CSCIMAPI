@@ -101,8 +101,8 @@ namespace Infrastructure.Services
 			var repositories = RepositoryHelper.CreateRepositories(request.Environment, _repositoryFactory);
 			// 使用某個特定的資料庫
 			var oracleRepo = repositories["DboEmap"];
-			var repository = repositories["CsCimEmap"];
-			var mySqlProd = repositories["LaserMarkingNormal"];
+			var repository = repositories["LaserMarkingBackendIns"];
+			var mySqlProd = repositories["LaserMarkingBackendSel"];
 
 			// 2. 取得 Config（依據 request.Product）
 			string configName = $"{request.Size}{request.Product}-{request.Version}-{request.StepCode}".Trim('-');
