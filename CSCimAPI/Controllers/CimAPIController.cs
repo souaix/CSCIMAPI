@@ -156,32 +156,37 @@ namespace CimAPI.Controllers
 		[HttpPost]
 		public async Task<IActionResult> LaserMarkingFrontend([FromBody] LaserMarkingFrontendRequest request)
 		{
-			if (request == null ||
-				string.IsNullOrWhiteSpace(request.Environment) ||
-				string.IsNullOrWhiteSpace(request.LotNo) ||
-				string.IsNullOrWhiteSpace(request.EqNo) ||
-				string.IsNullOrWhiteSpace(request.ProductNo) ||
-				request.CheckoutTime == default ||
-				request.Qty <= 0 || double.IsNaN(request.Qty)
-)
+			try
 			{
-				return BadRequest(ApiReturn<string>.Failure("參數不完整"));
+				if (request == null ||
+					string.IsNullOrWhiteSpace(request.Environment) ||
+					string.IsNullOrWhiteSpace(request.LotNo) ||
+					string.IsNullOrWhiteSpace(request.EqNo) ||
+					string.IsNullOrWhiteSpace(request.ProductNo) ||
+					request.CheckoutTime == default ||
+					request.Qty <= 0 || double.IsNaN(request.Qty))
+				{
+					return BadRequest(ApiReturn<string>.Failure("參數不完整"));
+				}
+
+				object result;
+
+				if (request.Action == "CREATE")
+				{
+					result = await _facade.GenerateFrontendTileIdsAsync(request);
+				}
+				else
+				{
+					return BadRequest(ApiReturn<string>.Failure("Action參數不完整"));
+				}
+
+				return Ok(result);
 			}
-
-			object result;
-
-			if (request.Action == "CREATE")
+			catch (Exception ex)
 			{
-				result = await _facade.GenerateFrontendTileIdsAsync(request);
+				_logger.LogError(ex, "生成雷射二維條碼時發生錯誤");
+				return StatusCode(500, "系統錯誤：" + ex.Message);
 			}
-			else
-			{
-				return BadRequest(ApiReturn<string>.Failure("Action參數不完整"));
-			}
-
-			return Ok(result);
-
-
 		}
 
 		/// <summary>
