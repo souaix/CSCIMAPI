@@ -22,7 +22,7 @@ public class OracleRepository : IRepository
 	// [New] 20250520 Julie: 支援使用跨表交易控制
 	public IDbConnection CreateOpenConnection()
 	{
-		var conn = new MySqlConnection(_connectionString);
+		var conn = new OracleConnection(_connectionString);
 		conn.Open();
 		return conn;
 	}
