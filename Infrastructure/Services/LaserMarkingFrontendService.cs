@@ -8,6 +8,7 @@ using System;
 using System.Collections.Generic;
 using System.Data;
 using System.Linq;
+using Dapper;
 
 namespace Infrastructure.Services
 {
@@ -44,53 +45,82 @@ namespace Infrastructure.Services
 				var tileBuilder = new LaserMarkingFrontendTileIdBuilder(oracleService);
 				var mysqlService = new LaserMarkingFrontendMySqlService(repoContainer);
 				var snService = new LaserMarkingFrontendSnQueryService(new LaserMarkingFrontendCodeGenerator());
-				var tableService = new LaserMarkingFrontendTableDataService(mysqlService);
-				var productService = new LaserMarkingFrontendProductService(mysqlService);
+				//var tableService = new LaserMarkingFrontendTableDataService(mysqlService);
+				//var productService = new LaserMarkingFrontendProductService(mysqlService);
 
 				// 1.建立 TileID
 				string tileId = await tileBuilder.BuildTileId(request);
 
-				// 2.依據 TileID 查詢前次序號
-				string lastSn = await mysqlService.GetLastSn(tileId);
+				// 2.解析 INI 檔案，先檢查 Auto_Recipe 是否成功取得
+				var parser = new LaserMarkingFrontendIniParser();
+				var config = parser.LoadParameters(request.ProductNo);
+				string autoRecipe = config["Auto_Recipe"];
 
-				// 3.依據 Qty 產生所需 n 筆編碼
-				List<string> snList = snService.GenerateSnList(lastSn, request.Qty);
+				// 3.建立 table <LotNo>
+				await mysqlService.CreateLotTableIfNotExist(request.LotNo); // DDL 無法 rollback -> 移出交易控制
 
-				// 4.建立 table <LotNo> 所需參數
-				var sns = snList.Select(sn => new LaserMarkingFrontendGeneratedSn
+				// 交易控制
+				//var mysqlRepo = repoContainer.LaserRepo;
+				using (var conn = repoContainer.LaserRepo.CreateOpenConnection()) // 立即開啟連線 (若不支援，會拋例外)
+				using (var tx = conn.BeginTransaction())
 				{
-					Sn = sn,
-					TileId = tileId,
-					LotNo = request.LotNo
-				}).ToList();
+					try
+					{
+						// 4.依據 TileID 查詢前次序號 (交易控制1)
+						string lastSn = await mysqlService.GetLastSn(tileId, conn, tx); // 接收 conn/tx
 
-				// 5.寫入 table <LotNo>
-				await tableService.SaveSnListToLotTable(request.LotNo, sns);
+						// 5.依據 Qty 產生所需 n 筆編碼
+						List<string> snList = snService.GenerateSnList(lastSn, request.Qty);
 
-				// 避免多次 checkout, 若已建立 table <LotNo>, 以 table 資料筆數取代 request.Qty
-				int actualQty = await mysqlService.GetLotSnCount(request.LotNo);
-				int finalQty = actualQty == 0 ? request.Qty : actualQty;
+						// 6.建立 table <LotNo> 所需參數
+						var sns = snList.Select(sn => new LaserMarkingFrontendGeneratedSn
+						{
+							Sn = sn,
+							TileId = tileId,
+							LotNo = request.LotNo
+						}).ToList();
 
-				// 6.建立 table product 所需參數
-				var product = new LaserMarkingFrontendProduct
-				{
-					LotNO = request.LotNo,
-					ProductName = null,
-					TileID = tileId,
-					LastSN = snList.Last(),
-					Quantity = finalQty.ToString(),
-					CreateDate = DateTime.Now.ToString("yyMMdd"),
-					CreateTime = DateTime.Now.ToString("HH:mm:ss"),
-					NoteData = request.CheckoutTime.ToString("yyyyMMdd.HHmmss"),
-				};
+						// 7.寫入 table <LotNo> (交易控制2)
+						//await tableService.SaveSnListToLotTable(request.LotNo, sns);
+						await mysqlService.InsertToLotTable(request.LotNo, sns, conn, tx);
 
-				// 7.寫入 table product
-				await productService.UpsertProductRecord(product, request.ProductNo);
+						// 避免多次 checkout, 若已建立 table <LotNo>, 以 table 資料筆數取代 request.Qty (交易控制3)
+						int actualQty = await mysqlService.GetLotSnCount(request.LotNo, conn, tx);
+						int finalQty = actualQty == 0 ? request.Qty : actualQty;
 
-				return ApiReturn<LaserMarkingFrontendProduct>.Success("操作成功!", product);
+						// 8.建立 table product 所需參數
+						var product = new LaserMarkingFrontendProduct
+						{
+							LotNO = request.LotNo,
+							ProductName = autoRecipe,
+							TileID = tileId,
+							LastSN = snList.Last(),
+							Quantity = finalQty.ToString(),
+							CreateDate = DateTime.Now.ToString("yyMMdd"),
+							CreateTime = DateTime.Now.ToString("HH:mm:ss"),
+							NoteData = request.CheckoutTime.ToString("yyyyMMdd.HHmmss"),
+						};
+
+						// 9.寫入 table product (交易控制4)
+						//await productService.UpsertProductRecord(product, request.ProductNo);
+						await mysqlService.InsertOrUpdateProduct(product, conn, tx);
+
+						// 10.確認所有程序 Ok 再提交交易
+						tx.Commit();
+
+						return ApiReturn<LaserMarkingFrontendProduct>.Success("操作成功!", product);
+					}
+					catch
+					{
+						tx.Rollback();
+						throw; // 向上拋出由外層處理
+					}
+				} // using 結束釋放 conn, tx
 			}
 			catch (Exception ex)
 			{
+				// CREATE TABLE 已執行則不會 rollback (DDL 無法 rollback)
+				// 但其他 INSERT 會 rollback
 				return ApiReturn<LaserMarkingFrontendProduct>.Failure(ex.Message); // 回傳錯誤訊息
 			}
 		}
@@ -326,11 +356,11 @@ namespace Infrastructure.Services
 		}
 
 		// 查詢前次 SN
-		public async Task<string> GetLastSn(string tileId)
+		public async Task<string> GetLastSn(string tileId, IDbConnection conn, IDbTransaction tx)
 		{
-			string lastSN = await _repo.QueryFirstOrDefaultAsync<string>(
+			string lastSN = await conn.QueryFirstOrDefaultAsync<string>(
 				"Select LastSN From product Where TileID = @TileId Order By LastSN Desc Limit 1",
-				new { TileId = tileId });
+				new { TileId = tileId }, tx);
 
 			if (string.IsNullOrEmpty(lastSN))
 			{
@@ -379,7 +409,7 @@ namespace Infrastructure.Services
 						PRIMARY KEY (`TileID`)
 					) ENGINE=InnoDB DEFAULT CHARSET=utf8;";
 
-				await _repo.ExecuteAsync(createTableSql);
+				await _repo.ExecuteAsync(createTableSql, null);
 				Console.WriteLine($"已建立 Table '{lotNo}'。");
 			}
 			catch (Exception ex)
@@ -390,7 +420,7 @@ namespace Infrastructure.Services
 		}
 
 		// INSERT data to table <LotNo>
-		public async Task InsertToLotTable(string lotNo, List<LaserMarkingFrontendGeneratedSn> sns)
+		public async Task InsertToLotTable(string lotNo, List<LaserMarkingFrontendGeneratedSn> sns, IDbConnection conn, IDbTransaction tx)
 		{
 			try
 			{
@@ -410,7 +440,7 @@ namespace Infrastructure.Services
 					TileText01 = x.TileId + x.Sn
 				});
 
-				await _repo.ExecuteAsync(sql, records);
+				await conn.ExecuteAsync(sql, records, tx);
 				Console.WriteLine($"已成功寫入 {records.Count()} 筆資料到 Table `{lotNo}`");
 			}
 			catch (Exception ex)
@@ -421,7 +451,7 @@ namespace Infrastructure.Services
 		}
 
 		// 避免批次 checkout, 以 insert into table <LotNo> 的資料筆數作為 product.Quantity 來源 
-		public async Task<int> GetLotSnCount(string lotNo)
+		public async Task<int> GetLotSnCount(string lotNo, IDbConnection conn, IDbTransaction tx)
 		{
 			try
 			{
@@ -430,7 +460,7 @@ namespace Infrastructure.Services
 										FROM information_schema.tables 
 										WHERE table_schema = DATABASE() AND table_name = @TableName";
 
-				int tableExists = await _repo.QueryFirstOrDefaultAsync<int>(checkTableSql, new { TableName = lotNo });
+				int tableExists = await conn.QueryFirstOrDefaultAsync<int>(checkTableSql, new { TableName = lotNo }, tx);
 
 				if (tableExists == 0)
 				{
@@ -440,7 +470,7 @@ namespace Infrastructure.Services
 
 				// Table 存在，查詢筆數
 				string countSql = $"SELECT COUNT(*) FROM `{lotNo}`;";
-				int count = await _repo.QueryFirstOrDefaultAsync<int>(countSql);
+				int count = await conn.QueryFirstOrDefaultAsync<int>(countSql, null, tx);
 				Console.WriteLine($"Table '{lotNo}' 共 {count} 筆資料。");
 				return count;
 			}
@@ -451,13 +481,13 @@ namespace Infrastructure.Services
 			}
 		}
 
-		public async Task InsertOrUpdateProduct(LaserMarkingFrontendProduct product)
+		public async Task InsertOrUpdateProduct(LaserMarkingFrontendProduct product, IDbConnection conn, IDbTransaction tx)
 		{
 			try
 			{
 				// 1. 查詢是否已有該 LotNo 資料
 				string checkSql = "SELECT COUNT(*) FROM product WHERE LotNo = @LotNo";
-				int exists = await _repo.QueryFirstOrDefaultAsync<int>(checkSql, new { product.LotNO });
+				int exists = await conn.QueryFirstOrDefaultAsync<int>(checkSql, new { product.LotNO }, tx);
 
 				if (exists > 0)
 				{
@@ -472,7 +502,7 @@ namespace Infrastructure.Services
 												NoteData = @NoteData
 											WHERE LotNO = @LotNO";
 
-					await _repo.ExecuteAsync(updateSql, product);
+					await conn.ExecuteAsync(updateSql, product, tx);
 					Console.WriteLine($"更新 LotNo: {product.LotNO} 成功");
 				}
 				else
@@ -481,7 +511,7 @@ namespace Infrastructure.Services
 					string insertSql = @"INSERT INTO product (LotNO, ProductName, TileID, LastSN, Quantity, CreateDate, CreateTime, NoteData)
 										VALUES (@LotNO, @ProductName, @TileID, @LastSN, @Quantity, @CreateDate, @CreateTime, @NoteData)";
 
-					await _repo.ExecuteAsync(insertSql, product);
+					await conn.ExecuteAsync(insertSql, product, tx);
 					Console.WriteLine($"Insert LotNo: {product.LotNO} 成功");
 				}
 			}
@@ -512,93 +542,50 @@ namespace Infrastructure.Services
 	}
 	#endregion
 
-
-	#region TableDataService
-	public class LaserMarkingFrontendTableDataService
-	{
-		private readonly LaserMarkingFrontendMySqlService _mysqlService;
-
-		public LaserMarkingFrontendTableDataService(LaserMarkingFrontendMySqlService mysqlService)
-		{
-			_mysqlService = mysqlService;
-		}
-
-		// 處理 MySQL table <LotNo> 
-		public async Task SaveSnListToLotTable(string lotNo, List<LaserMarkingFrontendGeneratedSn> sns)
-		{
-			await _mysqlService.CreateLotTableIfNotExist(lotNo);
-			await _mysqlService.InsertToLotTable(lotNo, sns);
-		}
-	}
-	#endregion
-
-
-	#region ProductService
-	public class LaserMarkingFrontendProductService
-	{
-		private readonly LaserMarkingFrontendMySqlService _mysqlService;
-
-		public LaserMarkingFrontendProductService(LaserMarkingFrontendMySqlService mysqlService)
-		{
-			_mysqlService = mysqlService;
-		}
-
-		// 處理 MySQL table product
-		public async Task UpsertProductRecord(LaserMarkingFrontendProduct product, string productNo)
-		{
-			var parser = new LaserMarkingFrontendIniParser();
-			var config = parser.LoadParameters(productNo); // 對應 <productNo>.INI
-			var autoRecipe = config["Auto_Recipe"];
-
-			// 更新 product.ProductName 為 autoRecipe
-			product.ProductName = autoRecipe;
-
-			await _mysqlService.InsertOrUpdateProduct(product);
-		}
-	}
-	#endregion
-
-
-	//#region SnGenerateService
-	//public class SnGenerateService
+	// [Modify] 20250520 Julie: 改從主流程呼叫 mysqlService
+	//#region TableDataService
+	//public class LaserMarkingFrontendTableDataService
 	//{
-	//	private readonly TileIdBuilder _tileBuilder;
-	//	private readonly MySqlService _mysqlService;
-	//	private readonly SnQueryService _snQueryService;
-	//	private readonly TableDataService _tableService;
-	//	private readonly ProductService _productService;
+	//	private readonly LaserMarkingFrontendMySqlService _mysqlService;
 
-	//	public SnGenerateService(
-	//		TileIdBuilder tileBuilder,
-	//		MySqlService mysqlService,
-	//		SnQueryService snQueryService,
-	//		TableDataService tableService,
-	//		ProductService productService)
+	//	public LaserMarkingFrontendTableDataService(LaserMarkingFrontendMySqlService mysqlService)
 	//	{
-	//		_tileBuilder = tileBuilder;
 	//		_mysqlService = mysqlService;
-	//		_snQueryService = snQueryService;
-	//		_tableService = tableService;
-	//		_productService = productService;
 	//	}
 
-	//	public void Generate(SnGenerateRequest request)
+	//	// 處理 MySQL table <LotNo> 
+	//	public async Task SaveSnListToLotTable(string lotNo, List<LaserMarkingFrontendGeneratedSn> sns)
 	//	{
-	//		string tileId = _tileBuilder.BuildTileId(request);
-	//		string lastSn = _mysqlService.GetLastSn(tileId);
-	//		List<string> snList = _snQueryService.GenerateSnList(lastSn, request.Qty);
+	//		await _mysqlService.CreateLotTableIfNotExist(lotNo);
+	//		await _mysqlService.InsertToLotTable(lotNo, sns);
+	//	}
+	//}
+	//#endregion
 
-	//		var sns = snList.Select(sn => new GeneratedSn
-	//		{
-	//			Sn = sn,
-	//			TileId = tileId,
-	//			LotNo = request.LotNo
-	//		}).ToList();
 
-	//		_tableService.SaveSnListToLotTable(request.LotNo, sns);
+	// [Modify] 20250520 Julie: 改從主流程呼叫 mysqlService
+	//#region ProductService
+	//public class LaserMarkingFrontendProductService
+	//{
+	//	private readonly LaserMarkingFrontendMySqlService _mysqlService;
 
-	//		int actualQty = _mysqlService.GetLotSnCount(request.LotNo);
-	//		_productService.UpsertProductRecord(request.LotNo, actualQty);
+	//	public LaserMarkingFrontendProductService(LaserMarkingFrontendMySqlService mysqlService)
+	//	{
+	//		_mysqlService = mysqlService;
+	//	}
+
+	//	// 處理 MySQL table product
+	//	public async Task UpsertProductRecord(LaserMarkingFrontendProduct product, string productNo)
+	//	{
+	//		// [Modify] 20250520 Julie: 改由主流程解析 INI檔
+	//		//var parser = new LaserMarkingFrontendIniParser();
+	//		//var config = parser.LoadParameters(productNo); // 對應 <productNo>.INI
+	//		//var autoRecipe = config["Auto_Recipe"];
+
+	//		//// 更新 product.ProductName 為 autoRecipe
+	//		//product.ProductName = autoRecipe;
+
+	//		await _mysqlService.InsertOrUpdateProduct(product);
 	//	}
 	//}
 	//#endregion
