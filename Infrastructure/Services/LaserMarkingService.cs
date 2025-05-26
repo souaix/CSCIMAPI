@@ -9,6 +9,7 @@ using Org.BouncyCastle.Asn1.Ocsp;
 using System.Globalization;
 using Infrastructure.Utilities;
 using System.Text.RegularExpressions;
+using Dapper;
 
 namespace Infrastructure.Services
 {
@@ -104,152 +105,197 @@ namespace Infrastructure.Services
 			var repository = repositories["LaserMarkingNormal"];
 			var mySqlProd = repositories["LaserMarkingBackendSel"];
 
-			// 2. 取得 Config（依據 request.Product）
-			string configName = $"{request.Size}{request.Product}-{request.Version}-{request.StepCode}".Trim('-');
-            
-            //var config = await repository.QueryFirstOrDefaultAsync<Config>(
-            //    "SELECT * FROM Config WHERE Config_Name = @ConfigName",
-            //    new { ConfigName = configName }
-            //);
-            //20250514 改撈正式MySQL
-            var config = await mySqlProd.QueryFirstOrDefaultAsync<Config>(
-                "SELECT * FROM Config WHERE Config_Name = @ConfigName",
-                new { ConfigName = configName }
-            );
-            if (config == null)
-                return ApiReturn<string>.Failure("Config not found!");
-
-            // 1.1 取得 CustomerConfig（依據 request.Customer）
-            //var customerConfig = await repository.QueryFirstOrDefaultAsync<CustomerConfig>(
-            //    "SELECT * FROM CustomerConfig WHERE Customer = @Customer",
-            //    new { Customer = request.Customer }
-            //);
-            //20250514 改撈正式MySQL
-            var customerConfig = await mySqlProd.QueryFirstOrDefaultAsync<CustomerConfig>(
-                "SELECT * FROM CustomerConfig WHERE Customer = @Customer",
-                new { Customer = request.Customer }
-            );
-            if (customerConfig == null)
-                return ApiReturn<string>.Failure("CustomerConfig not found!");
-
-            // 檢查 StepCode 是否存在於 opno_prefix
-            bool stepCodeExistsInOpnoPrefix = await repository.QueryFirstOrDefaultAsync<bool>(
-                "SELECT COUNT(*) > 0 FROM opno_prefix WHERE opno = @StepCode",
-                new { StepCode = request.StepCode }
-            );
-
-
-            // **處理正面編碼**
-            // 4.1 呼叫 GenerateTileIds，處理正面（isBackSide: false）
-            //var (topTileIds, topLotCreatorList, topLastSN) = await GenerateTileIds(request, config, customerConfig, isBackSide: false, repository);
-            var (topTileIds, topLotCreatorList, originalLastSN, topLastSN) = await GenerateTileIds(request, config, customerConfig, isBackSide: false, repository, mySqlProd);
-            // 4.2.6 呼叫 SaveLotCreatorData，儲存正面資料（LotNo 不加 B）
-            await SaveLotCreatorData(repository, request.LotNo, topLotCreatorList, request.StepCode, mySqlProd);
-            
-            
-
-            string lotTable = request.LotNo;
-            var panelRows = await repository.QueryAsync<dynamic>($"SELECT * FROM `{lotTable}`");
-
-            var panelTileList = new List<List<string>>();
-
-            foreach (var row in panelRows)
+            //20250526 使用 Transaction 
+            using var conn = repository.CreateOpenConnection();
+            using var tx = conn.BeginTransaction();
+            try
             {
-                var tiles = new List<string>();
+                // 2. 取得 Config（依據 request.Product）
+                string configName = $"{request.Size}{request.Product}-{request.Version}-{request.StepCode}".Trim('-');
 
-                if (row.TileText01 != null) tiles.Add((string)row.TileText01);
-                if (row.TileText02 != null) tiles.Add((string)row.TileText02);
-                if (row.TileText03 != null) tiles.Add((string)row.TileText03);
-                if (row.TileText04 != null) tiles.Add((string)row.TileText04);
-                if (row.TileText05 != null) tiles.Add((string)row.TileText05);
+                //var config = await repository.QueryFirstOrDefaultAsync<Config>(
+                //    "SELECT * FROM Config WHERE Config_Name = @ConfigName",
+                //    new { ConfigName = configName }
+                //);
+                //20250514 改撈正式MySQL
+                var config = await mySqlProd.QueryFirstOrDefaultAsync<Config>(
+                    "SELECT * FROM Config WHERE Config_Name = @ConfigName",
+                    new { ConfigName = configName }
+                );
+                if (config == null)
+                    return ApiReturn<string>.Failure("Config not found!");
 
-                panelTileList.Add(tiles);
-            }
+                // 1.1 取得 CustomerConfig（依據 request.Customer）
+                //var customerConfig = await repository.QueryFirstOrDefaultAsync<CustomerConfig>(
+                //    "SELECT * FROM CustomerConfig WHERE Customer = @Customer",
+                //    new { Customer = request.Customer }
+                //);
+                //20250514 改撈正式MySQL
+                var customerConfig = await mySqlProd.QueryFirstOrDefaultAsync<CustomerConfig>(
+                    "SELECT * FROM CustomerConfig WHERE Customer = @Customer",
+                    new { Customer = request.Customer }
+                );
+                if (customerConfig == null)
+                    return ApiReturn<string>.Failure("CustomerConfig not found!");
 
-            //增加寫入 MAP 的 TBLWIPLOTMARKINGDATA
-            await InsertWipLotMarkingDataToOracle(request.LotNo, panelTileList, oracleRepo);
-
-            // 4.2.7.5 取得最後一筆正面 TileText 作為 TileIDEnd
-            string finalProductTileId = topLotCreatorList.LastOrDefault(l => !string.IsNullOrEmpty(l.TileText02))?.TileText02
-                ?? topLotCreatorList.LastOrDefault(l => !string.IsNullOrEmpty(l.TileText01))?.TileText01;
-
-            Console.WriteLine($"Final TileID for Product Table: {finalProductTileId}");
+                // 檢查 StepCode 是否存在於 opno_prefix
+                bool stepCodeExistsInOpnoPrefix = await repository.QueryFirstOrDefaultAsync<bool>(
+                    "SELECT COUNT(*) > 0 FROM opno_prefix WHERE opno = @StepCode",
+                    new { StepCode = request.StepCode }
+                );
 
 
-			// **存入 Product Table**
-			// 4.2.8 將正面編碼結果存入 Product 表（根據 stepCode 判斷 Table 命名）
-			if (stepCodeExistsInOpnoPrefix)
-            {
-                // StepCode 存在於 opno_prefix，只插入 C+LotNo 和 D+LotNo
-                //await SaveProductTable(repository, "C" + request.LotNo, request.Customer, $"{request.Product}-TOP-C", topTileIds, topLastSN, finalProductTileId, config,true);
-                //await SaveProductTable(repository, "D" + request.LotNo, request.Customer, $"{request.Product}-TOP-D", topTileIds, topLastSN, finalProductTileId, config,true);
-                await SaveProductTable(repository, "C" + request.LotNo, request.Customer, $"{configName}-TOP-C", topTileIds, topLastSN, finalProductTileId, config, true);
-                await SaveProductTable(repository, "D" + request.LotNo, request.Customer, $"{configName}-TOP-D", topTileIds, topLastSN, finalProductTileId, config, true);
-            }
-            else
-            {
-                // StepCode 不存在於 opno_prefix，插入 LotNo
-                if (config.Side == 1)
-                { 
-                    //await SaveProductTable(repository, request.LotNo, request.Customer, $"{request.Product}", topTileIds, topLastSN, finalProductTileId, config,true);
-                    await SaveProductTable(repository, request.LotNo, request.Customer, $"{configName}", topTileIds, topLastSN, finalProductTileId, config, true);
-                }
-                else 
+                // **處理正面編碼**
+                // 4.1 呼叫 GenerateTileIds，處理正面（isBackSide: false）
+                //var (topTileIds, topLotCreatorList, topLastSN) = await GenerateTileIds(request, config, customerConfig, isBackSide: false, repository);
+                var (topTileIds, topLotCreatorList, originalLastSN, topLastSN) = await GenerateTileIds(request, config, customerConfig, isBackSide: false, repository, mySqlProd);
+                // 4.2.6 呼叫 SaveLotCreatorData，儲存正面資料（LotNo 不加 B）
+
+                //20250526 改用 Transaction
+                //await SaveLotCreatorData(repository, request.LotNo, topLotCreatorList, request.StepCode, mySqlProd);
+                await SaveLotCreatorData(conn, tx, request.LotNo, topLotCreatorList, request.StepCode, mySqlProd);
+
+
+
+                string lotTable = request.LotNo;
+
+                //20250526 改用 Transaction
+                //var panelRows = await repository.QueryAsync<dynamic>($"SELECT * FROM `{lotTable}`");
+                var panelRows = await conn.QueryAsync<dynamic>($"SELECT * FROM `{request.LotNo}`", null, tx);
+
+                var panelTileList = new List<List<string>>();
+
+                foreach (var row in panelRows)
                 {
-                    //await SaveProductTable(repository, request.LotNo, request.Customer, $"{request.Product}-TOP", topTileIds, topLastSN, finalProductTileId, config,true); 
-                    await SaveProductTable(repository, request.LotNo, request.Customer, $"{configName}-TOP", topTileIds, topLastSN, finalProductTileId, config, true);
+                    var tiles = new List<string>();
+
+                    if (row.TileText01 != null) tiles.Add((string)row.TileText01);
+                    if (row.TileText02 != null) tiles.Add((string)row.TileText02);
+                    if (row.TileText03 != null) tiles.Add((string)row.TileText03);
+                    if (row.TileText04 != null) tiles.Add((string)row.TileText04);
+                    if (row.TileText05 != null) tiles.Add((string)row.TileText05);
+
+                    panelTileList.Add(tiles);
                 }
-                
-            }
 
-            
+                //20250526 因使用 Transaction ，改放到最後 tx.commit之後
+                //增加寫入 MAP 的 TBLWIPLOTMARKINGDATA
+                //await InsertWipLotMarkingDataToOracle(request.LotNo, panelTileList, oracleRepo);
 
-            // **處理背面編碼 (如果 SIDE = 2)**
-            List<string> backTileIds = new();
-            string backLastSN = ""; // 預設一個空字串
-									//Console.WriteLine(topTileIds.Last());
+                // 4.2.7.5 取得最後一筆正面 TileText 作為 TileIDEnd
+                string finalProductTileId = topLotCreatorList.LastOrDefault(l => !string.IsNullOrEmpty(l.TileText02))?.TileText02
+                    ?? topLotCreatorList.LastOrDefault(l => !string.IsNullOrEmpty(l.TileText01))?.TileText01;
 
-			// **存入 Product Table (背面)**
-			// 5.1 若 Config.Side == 2 則需要處理背面
-			if (config.Side == 2)
-            {
-				// 5.2 呼叫 GenerateTileIds，處理背面（isBackSide: true）
-				var (generatedBackTileIds, backLotCreatorList, topOriginalSN, tempBackLastSN) = await GenerateTileIds(request, config, customerConfig, isBackSide: true, repository, mySqlProd, originalLastSN);
-                backTileIds = generatedBackTileIds;
-                backLastSN = tempBackLastSN; // 這裡使用 tempBackLastSN 來避免衝突
+                Console.WriteLine($"Final TileID for Product Table: {finalProductTileId}");
 
-				// 5.3.1 呼叫 SaveLotCreatorData，儲存背面資料（LotNo 前面加上 B）
-				await SaveLotCreatorData(repository, "B" + request.LotNo, backLotCreatorList, request.StepCode, mySqlProd);
-              
 
-                // **取得背面 TileIDEnd，應該存入 TileText02 的最後一筆**
-                // 5.3.2 取得背面最後一筆 TileText 作為 TileIDEnd
-                string finalBackTileId = backLotCreatorList.LastOrDefault(l => !string.IsNullOrEmpty(l.TileText02))?.TileText02
-                    ?? backLotCreatorList.LastOrDefault(l => !string.IsNullOrEmpty(l.TileText01))?.TileText01;
-
-				// **存入背面 Product Table**
-				// 5.3.2 將背面編碼結果存入 Product 表
-				if (stepCodeExistsInOpnoPrefix)
+                // **存入 Product Table**
+                // 4.2.8 將正面編碼結果存入 Product 表（根據 stepCode 判斷 Table 命名）
+                if (stepCodeExistsInOpnoPrefix)
                 {
-                    // StepCode 存在於 opno_prefix，插入 BC+LotNo 和 BD+LotNo
-                    //await SaveProductTable(repository, "BC" + request.LotNo, request.Customer, $"{request.Product}-BACK-C", backTileIds, backLastSN, finalBackTileId,config,false);
-                    //await SaveProductTable(repository, "BD" + request.LotNo, request.Customer, $"{request.Product}-BACK-D", backTileIds, backLastSN, finalBackTileId, config,false);
-                    await SaveProductTable(repository, "BC" + request.LotNo, request.Customer, $"{configName}-BACK-C", backTileIds, backLastSN, finalBackTileId, config, false);
-                    await SaveProductTable(repository, "BD" + request.LotNo, request.Customer, $"{configName}-BACK-D", backTileIds, backLastSN, finalBackTileId, config, false);
+                    // StepCode 存在於 opno_prefix，只插入 C+LotNo 和 D+LotNo
+                    //await SaveProductTable(repository, "C" + request.LotNo, request.Customer, $"{request.Product}-TOP-C", topTileIds, topLastSN, finalProductTileId, config,true);
+                    //await SaveProductTable(repository, "D" + request.LotNo, request.Customer, $"{request.Product}-TOP-D", topTileIds, topLastSN, finalProductTileId, config,true);
+
+                    //20250526 改用 transaction
+                    //await SaveProductTable(repository, "C" + request.LotNo, request.Customer, $"{configName}-TOP-C", topTileIds, topLastSN, finalProductTileId, config, true);
+                    //await SaveProductTable(repository, "D" + request.LotNo, request.Customer, $"{configName}-TOP-D", topTileIds, topLastSN, finalProductTileId, config, true);
+                    await SaveProductTable(conn, tx, "C" + request.LotNo, request.Customer, $"{configName}-TOP-C", topTileIds, topLastSN, finalProductTileId, config, true);
+                    await SaveProductTable(conn, tx, "D" + request.LotNo, request.Customer, $"{configName}-TOP-D", topTileIds, topLastSN, finalProductTileId, config, true);
                 }
                 else
                 {
-                    // StepCode 不存在於 opno_prefix，插入 B+LotNo
-                    //await SaveProductTable(repository, "B" + request.LotNo, request.Customer, $"{request.Product}-BACK", backTileIds, backLastSN, finalBackTileId, config,false);
-                    await SaveProductTable(repository, "B" + request.LotNo, request.Customer, $"{configName}-BACK", backTileIds, backLastSN, finalBackTileId, config, false);
+                    // StepCode 不存在於 opno_prefix，插入 LotNo
+                    if (config.Side == 1)
+                    {
+                        //await SaveProductTable(repository, request.LotNo, request.Customer, $"{request.Product}", topTileIds, topLastSN, finalProductTileId, config,true);
+
+                        //20250526 改用 transaction
+                        //await SaveProductTable(repository, request.LotNo, request.Customer, $"{configName}", topTileIds, topLastSN, finalProductTileId, config, true);
+                        await SaveProductTable(conn, tx, request.LotNo, request.Customer, $"{configName}", topTileIds, topLastSN, finalProductTileId, config, true);
+
+                    }
+                    else
+                    {
+                        //await SaveProductTable(repository, request.LotNo, request.Customer, $"{request.Product}-TOP", topTileIds, topLastSN, finalProductTileId, config,true); 
+
+                        //20250526 改用 transaction
+                        //await SaveProductTable(repository, request.LotNo, request.Customer, $"{configName}-TOP", topTileIds, topLastSN, finalProductTileId, config, true);
+                        await SaveProductTable(conn, tx, request.LotNo, request.Customer, $"{configName}-TOP", topTileIds, topLastSN, finalProductTileId, config, true);
+                    }
+
                 }
 
 
-                
+
+                // **處理背面編碼 (如果 SIDE = 2)**
+                List<string> backTileIds = new();
+                string backLastSN = ""; // 預設一個空字串
+                                        //Console.WriteLine(topTileIds.Last());
+
+                // **存入 Product Table (背面)**
+                // 5.1 若 Config.Side == 2 則需要處理背面
+                if (config.Side == 2)
+                {
+                    // 5.2 呼叫 GenerateTileIds，處理背面（isBackSide: true）
+                    var (generatedBackTileIds, backLotCreatorList, topOriginalSN, tempBackLastSN) = await GenerateTileIds(request, config, customerConfig, isBackSide: true, repository, mySqlProd, originalLastSN);
+                    backTileIds = generatedBackTileIds;
+                    backLastSN = tempBackLastSN; // 這裡使用 tempBackLastSN 來避免衝突
+
+                    // 5.3.1 呼叫 SaveLotCreatorData，儲存背面資料（LotNo 前面加上 B）
+                    //20250526 改用 transaction
+                    //await SaveLotCreatorData(repository, "B" + request.LotNo, backLotCreatorList, request.StepCode, mySqlProd);
+                    //await SaveLotCreatorData(repository, "B" + request.LotNo, backLotCreatorList, request.StepCode, mySqlProd);
+                    await SaveLotCreatorData(conn, tx, "B" + request.LotNo, backLotCreatorList, request.StepCode, mySqlProd);
+
+
+                    // **取得背面 TileIDEnd，應該存入 TileText02 的最後一筆**
+                    // 5.3.2 取得背面最後一筆 TileText 作為 TileIDEnd
+                    string finalBackTileId = backLotCreatorList.LastOrDefault(l => !string.IsNullOrEmpty(l.TileText02))?.TileText02
+                        ?? backLotCreatorList.LastOrDefault(l => !string.IsNullOrEmpty(l.TileText01))?.TileText01;
+
+                    // **存入背面 Product Table**
+                    // 5.3.2 將背面編碼結果存入 Product 表
+                    if (stepCodeExistsInOpnoPrefix)
+                    {
+                        // StepCode 存在於 opno_prefix，插入 BC+LotNo 和 BD+LotNo
+                        //await SaveProductTable(repository, "BC" + request.LotNo, request.Customer, $"{request.Product}-BACK-C", backTileIds, backLastSN, finalBackTileId,config,false);
+                        //await SaveProductTable(repository, "BD" + request.LotNo, request.Customer, $"{request.Product}-BACK-D", backTileIds, backLastSN, finalBackTileId, config,false);
+                        //20250526 改用 transaction
+                        //await SaveProductTable(repository, "BC" + request.LotNo, request.Customer, $"{configName}-BACK-C", backTileIds, backLastSN, finalBackTileId, config, false);
+                        //await SaveProductTable(repository, "BD" + request.LotNo, request.Customer, $"{configName}-BACK-D", backTileIds, backLastSN, finalBackTileId, config, false);
+                        await SaveProductTable(conn, tx, "BC" + request.LotNo, request.Customer, $"{configName}-BACK-C", backTileIds, backLastSN, finalBackTileId, config, false);
+                        await SaveProductTable(conn, tx, "BD" + request.LotNo, request.Customer, $"{configName}-BACK-D", backTileIds, backLastSN, finalBackTileId, config, false);
+                    }
+                    else
+                    {
+                        // StepCode 不存在於 opno_prefix，插入 B+LotNo
+                        //await SaveProductTable(repository, "B" + request.LotNo, request.Customer, $"{request.Product}-BACK", backTileIds, backLastSN, finalBackTileId, config,false);
+                        //20250526 改用 transaction
+                        //await SaveProductTable(repository, "B" + request.LotNo, request.Customer, $"{configName}-BACK", backTileIds, backLastSN, finalBackTileId, config, false);
+                        await SaveProductTable(conn, tx, "B" + request.LotNo, request.Customer, $"{configName}-BACK", backTileIds, backLastSN, finalBackTileId, config, false);
+                    }
+
+
+
+                }
+
+                tx.Commit();
+
+                //20250526 因使用 Transaction ，改放到最後 tx.commit之後
+                //增加寫入 MAP 的 TBLWIPLOTMARKINGDATA
+                await InsertWipLotMarkingDataToOracle(request.LotNo, panelTileList, oracleRepo);
+
+                // 回傳成功，並帶出最後一筆正面 TileID
+                return ApiReturn<string>.Success("Tile ID generated successfully.", topTileIds.Last());
+            }
+            catch (Exception ex)
+            {
+                tx.Rollback();
+                return ApiReturn<string>.Failure($"發生錯誤: {ex.Message}");
             }
 
-			// 回傳成功，並帶出最後一筆正面 TileID
-			return ApiReturn<string>.Success("Tile ID generated successfully.", topTileIds.Last());
+            
 
             
         }
@@ -602,17 +648,22 @@ namespace Infrastructure.Services
             return (tileIds, lotCreators, originalLastSN, lastSN);  // 最後一筆 SN
         }
 
-
-        private async Task SaveLotCreatorData(IRepository repository, string lotNo, List<LotCreator> lotCreators, string stepCode,IRepository mySqlProd)
+        //20250526 使用 transaction
+        //private async Task SaveLotCreatorData(IRepository repository, string lotNo, List<LotCreator> lotCreators, string stepCode,IRepository mySqlProd)
+        private async Task SaveLotCreatorData(IDbConnection conn, IDbTransaction tx, string lotNo, List<LotCreator> lotCreators, string stepCode, IRepository mySqlProd)
         {
             // 查詢 opno_prefix，確認 stepCode 是否存在（控制 table 命名規則）
-            bool stepCodeExists = await repository.QueryFirstOrDefaultAsync<string>(
+            //20250526 使用 transaction
+            //bool stepCodeExists = await repository.QueryFirstOrDefaultAsync<string>(
+            //    "SELECT opno FROM opno_prefix WHERE opno = @StepCode",
+            //    new { StepCode = stepCode }
+            //) != null;
+            bool stepCodeExists = await conn.QueryFirstOrDefaultAsync<string>(
                 "SELECT opno FROM opno_prefix WHERE opno = @StepCode",
-                new { StepCode = stepCode }
-            ) != null;
+                new { StepCode = stepCode }, tx) != null;
 
-			// 初始化需建立的資料表清單
-			List<string> tableNames = new();
+            // 初始化需建立的資料表清單
+            List<string> tableNames = new();
 
 			
 
@@ -655,7 +706,33 @@ namespace Infrastructure.Services
 			// 迭代所有需要創建的 Table，執行建立 Table 與插入數據
 			foreach (var tableName in tableNames)
             {
-                await repository.ExecuteAsync($@"
+                //20250526 使用 transaction
+                //await repository.ExecuteAsync($@"
+                //CREATE TABLE IF NOT EXISTS `{tableName}` (
+                //    TileID VARCHAR(50) PRIMARY KEY,
+                //    MachineID VARCHAR(50),
+                //    MarkDate VARCHAR(10),
+                //    MarkTime VARCHAR(10),
+                //    ReworkDate VARCHAR(10),
+                //    ReworkTime VARCHAR(10),
+                //    TileText01 VARCHAR(50),
+                //    TileText02 VARCHAR(50),
+                //    TileText03 VARCHAR(50),
+                //    TileText04 VARCHAR(50),
+                //    TileText05 VARCHAR(50),
+                //    CellText01 VARCHAR(50),
+                //    CellText02 VARCHAR(50),
+                //    CellText03 VARCHAR(50),
+                //    CellText04 VARCHAR(50),
+                //    CellText05 VARCHAR(50),
+                //    DotData VARCHAR(50),
+                //    Tile01Count INT,
+                //    Tile02Count INT,
+                //    Tile03Count INT,
+                //    Tile04Count INT,
+                //    Tile05Count INT
+                //)");
+                await conn.ExecuteAsync($@"
                 CREATE TABLE IF NOT EXISTS `{tableName}` (
                     TileID VARCHAR(50) PRIMARY KEY,
                     MachineID VARCHAR(50),
@@ -679,19 +756,33 @@ namespace Infrastructure.Services
                     Tile03Count INT,
                     Tile04Count INT,
                     Tile05Count INT
-                )");
-				// 將 lotCreator 資料寫入該表
-				foreach (var lotCreator in lotCreators)
+                )", null, tx);
+
+
+
+                // 將 lotCreator 資料寫入該表
+                foreach (var lotCreator in lotCreators)
                 {
-                    await repository.ExecuteAsync($@"
-                INSERT INTO `{tableName}` (TileID, MachineID, MarkDate, MarkTime, ReworkDate, ReworkTime,
-                                             TileText01, TileText02, TileText03, TileText04, TileText05,
-                                             CellText01, CellText02, CellText03, CellText04, CellText05,
-                                             DotData, Tile01Count, Tile02Count, Tile03Count, Tile04Count, Tile05Count)
-                VALUES (@TileID, NULL, NULL, NULL, NULL, NULL,
-                        @TileText01, @TileText02, @TileText03, @TileText04, @TileText05,
-                        @CellText01, @CellText02, @CellText03, @CellText04, @CellText05,
-                        @DotData, @Tile01Count, @Tile02Count, @Tile03Count, @Tile04Count, @Tile05Count)", lotCreator);
+                    //20250526 使用 transaction
+                    //await repository.ExecuteAsync($@"
+                    //INSERT INTO `{tableName}` (TileID, MachineID, MarkDate, MarkTime, ReworkDate, ReworkTime,
+                    //                             TileText01, TileText02, TileText03, TileText04, TileText05,
+                    //                             CellText01, CellText02, CellText03, CellText04, CellText05,
+                    //                             DotData, Tile01Count, Tile02Count, Tile03Count, Tile04Count, Tile05Count)
+                    //VALUES (@TileID, NULL, NULL, NULL, NULL, NULL,
+                    //        @TileText01, @TileText02, @TileText03, @TileText04, @TileText05,
+                    //        @CellText01, @CellText02, @CellText03, @CellText04, @CellText05,
+                    //        @DotData, @Tile01Count, @Tile02Count, @Tile03Count, @Tile04Count, @Tile05Count)", lotCreator);
+
+                    await conn.ExecuteAsync($@"
+                    INSERT INTO `{tableName}` (TileID, MachineID, MarkDate, MarkTime, ReworkDate, ReworkTime,
+                                                 TileText01, TileText02, TileText03, TileText04, TileText05,
+                                                 CellText01, CellText02, CellText03, CellText04, CellText05,
+                                                 DotData, Tile01Count, Tile02Count, Tile03Count, Tile04Count, Tile05Count)
+                    VALUES (@TileID, NULL, NULL, NULL, NULL, NULL,
+                            @TileText01, @TileText02, @TileText03, @TileText04, @TileText05,
+                            @CellText01, @CellText02, @CellText03, @CellText04, @CellText05,
+                            @DotData, @Tile01Count, @Tile02Count, @Tile03Count, @Tile04Count, @Tile05Count)", lotCreator, tx);
                 }
 
                 //20250516 增加寫入APICOMPARELOG by Max Yang
@@ -843,8 +934,10 @@ namespace Infrastructure.Services
             return string.Join("", prefixBuilder);
         }
 
-
-        private async Task SaveProductTable(IRepository repository, string lotNo,string customer, string productName, List<string> tileIds, string lastSN,string finalTileid, Config config, bool isTopSide)
+        //20250526 使用 transaction
+        //private async Task SaveProductTable(IRepository repository, string lotNo,string customer, string productName, List<string> tileIds, string lastSN,string finalTileid, Config config, bool isTopSide)
+        private async Task SaveProductTable(IDbConnection conn, IDbTransaction tx, string lotNo, string customer, string productName,
+            List<string> tileIds, string lastSN, string finalTileid, Config config, bool isTopSide)
         {
             // 4.2.7.5 確保最後一筆編碼字串存在（TileIDEnd 若為 null 則 fallback 為首筆）
             //string tileIDEnd = tileIds.LastOrDefault() ?? tileIds.First();
@@ -852,30 +945,56 @@ namespace Infrastructure.Services
             string ruleFile2 = isTopSide ? config.Top_RuleFile2 : config.Back_RuleFile2;
             string ruleFile3 = isTopSide ? config.Top_RuleFile3 : config.Back_RuleFile3;
 
-            var panelRows = await repository.QueryAsync<dynamic>($"SELECT * FROM `{lotNo}`");
+            //20250526 使用 transaction
+            //var panelRows = await repository.QueryAsync<dynamic>($"SELECT * FROM `{lotNo}`");
+            var panelRows = await conn.QueryAsync<dynamic>($"SELECT * FROM `{lotNo}`", null, tx);
+
             string tileIdEnd = GetTileIdEndFromPanelData(panelRows.ToList(), config);
+
             // 4.2.8 寫入 Product 資料表
-            await repository.ExecuteAsync(@"
-            INSERT INTO Product (LotNO, Customer, ProductName, TileID, TileIDEnd, LastSN, Quantity, RuleFile1, RuleFile2, RuleFile3, CreateDate, CreateTime)
-            VALUES (@LotNO, @Customer, @ProductName, @TileID, @TileIDEnd, @LastSN, @Quantity, @RuleFile1, @RuleFile2, @RuleFile3, @CreateDate, @CreateTime)",
+            //20250526 使用 transaction
+     //       await repository.ExecuteAsync(@"
+     //       INSERT INTO Product (LotNO, Customer, ProductName, TileID, TileIDEnd, LastSN, Quantity, RuleFile1, RuleFile2, RuleFile3, CreateDate, CreateTime)
+     //       VALUES (@LotNO, @Customer, @ProductName, @TileID, @TileIDEnd, @LastSN, @Quantity, @RuleFile1, @RuleFile2, @RuleFile3, @CreateDate, @CreateTime)",
+     //           new
+     //           {
+     //               LotNO = lotNo,
+     //               Customer = customer,
+					//// 4.2.7.4 ProductName（已於外層組合完成，包含 TOP/BACK 判斷）
+					//ProductName = productName,
+     //               TileID = tileIds.First(),
+     //               //TileIDEnd = finalTileid,
+     //               TileIDEnd = tileIdEnd,
+     //               LastSN = lastSN,
+					//// 4.2.7.7 總編碼筆數 → Quantity
+					//Quantity = tileIds.Count,
+     //               RuleFile1 = ruleFile1,
+     //               RuleFile2 = ruleFile2,
+     //               RuleFile3 = ruleFile3,
+     //               CreateDate = DateTime.Now.ToString("yyMMdd"),
+     //               CreateTime = DateTime.Now.ToString("HH:mm:ss")
+     //           });
+
+            await conn.ExecuteAsync(@"
+                INSERT INTO Product (LotNO, Customer, ProductName, TileID, TileIDEnd, LastSN, Quantity,
+                                      RuleFile1, RuleFile2, RuleFile3, CreateDate, CreateTime)
+                VALUES (@LotNO, @Customer, @ProductName, @TileID, @TileIDEnd, @LastSN, @Quantity,
+                        @RuleFile1, @RuleFile2, @RuleFile3, @CreateDate, @CreateTime)",
                 new
                 {
                     LotNO = lotNo,
                     Customer = customer,
-					// 4.2.7.4 ProductName（已於外層組合完成，包含 TOP/BACK 判斷）
-					ProductName = productName,
+                    ProductName = productName,
                     TileID = tileIds.First(),
-                    //TileIDEnd = finalTileid,
                     TileIDEnd = tileIdEnd,
                     LastSN = lastSN,
-					// 4.2.7.7 總編碼筆數 → Quantity
-					Quantity = tileIds.Count,
+                    Quantity = tileIds.Count,
                     RuleFile1 = ruleFile1,
                     RuleFile2 = ruleFile2,
                     RuleFile3 = ruleFile3,
                     CreateDate = DateTime.Now.ToString("yyMMdd"),
                     CreateTime = DateTime.Now.ToString("HH:mm:ss")
-                });
+                }, tx);
         }
 
 
