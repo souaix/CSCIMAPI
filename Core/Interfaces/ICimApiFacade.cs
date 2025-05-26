@@ -7,6 +7,7 @@ using Core.Entities.LotTileCheck;
 using Core.Entities.MailSender;
 using Core.Entities.Public;
 using Core.Entities.Recipe2DCodeGenerator;
+using Core.Entities.RecycleLotCopy;
 using Core.Entities.Scada;
 using Core.Entities.TeamsAlarm;
 using Core.Entities.YieldRecordData;
@@ -31,7 +32,7 @@ namespace Core.Interfaces
 		Task<ApiReturn<DefectCountResponse>> CountDefectsAsync(DefectCountRequest request);
 		Task<ApiReturn<bool>> WriteScadaTagAsync(ScadaWriteRequest request);
 
+        Task<ApiReturn<string>> RecycleLotCopyAsync(RecycleLotCopyRequest request);
 
-
-	}
+    }
 }
