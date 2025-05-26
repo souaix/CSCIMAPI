@@ -63,6 +63,7 @@ var databaseConfigs = new Dictionary<string, Dictionary<string, (string Connecti
 			{ "DboEmap", ("Data Source=(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=192.168.20.120)(PORT=1521))(CONNECT_DATA=(SERVICE_NAME=emap)));User Id=dbo;Password=Memory1900;", "Oracle") },
 			{ "LaserMarkingNormal", ("Server=172.24.5.248;Database=theil_servernew;User=root;Password=;", "MySQL") },
 			{ "LaserMarkingFrontend", ("Server=172.24.101.42;Database=theil_base_server;User=root;Password=;", "MySQL") },
+			{ "LaserMarkingFrontendProd", ("Server=172.24.101.42;Database=theil_base_server;User=root;Password=;", "MySQL") },
 			{ "LaserMarkingBackendSel", ("Server=172.24.5.248;Database=theil_servernew;User=root;Password=;", "MySQL") },
             { "LaserMarkingBackendIns", ("Server=172.24.5.248;Database=theil_servernew;User=root;Password=;", "MySQL") }
         }
@@ -76,7 +77,8 @@ var databaseConfigs = new Dictionary<string, Dictionary<string, (string Connecti
 			{ "DboEmap", ("Data Source=(DESCRIPTION=(ADDRESS=(PROTOCOL=TCP)(HOST=10.30.40.133)(PORT=1521))(CONNECT_DATA=(SERVICE_NAME=emap)));User Id=dbo;Password=Memory1900;", "Oracle") },
 			{ "LaserMarkingNormal", ("Server=10.12.1.148;Database=theil_servernew;User=root;Password=;", "MySQL") },
 			{ "LaserMarkingFrontend", ("Server=10.12.1.148;Database=theil_base_server;User=root;Password=;", "MySQL") },
-            { "LaserMarkingBackendSel", ("Server=172.24.5.248;Database=theil_servernew;User=root;Password=;", "MySQL") },
+			{ "LaserMarkingFrontendProd", ("Server=172.24.101.42;Database=theil_base_server;User=root;Password=;", "MySQL") },
+			{ "LaserMarkingBackendSel", ("Server=172.24.5.248;Database=theil_servernew;User=root;Password=;", "MySQL") },
             { "LaserMarkingBackendIns", ("Server=10.21.100.28;Database=theil_servernew;User=thiler;Password=thil1234;", "MySQL") }
         }
 	}

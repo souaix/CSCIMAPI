@@ -15,11 +15,13 @@ namespace Infrastructure.Services
 	public class RepositoryContainer
 	{
 		public IRepository LaserRepo { get; }
+		public IRepository LaserRepoProd { get; } // 驗證階段直接從正式區取得
 		public IRepository CsCimRepo { get; }
 
 		public RepositoryContainer(Dictionary<string, IRepository> repositories)
 		{
 			LaserRepo = repositories["LaserMarkingFrontend"];
+			LaserRepoProd = repositories["LaserMarkingFrontendProd"]; // 驗證階段直接從正式區取得
 			CsCimRepo = repositories["CsCimEmap"];
 		}
 	}
@@ -59,6 +61,9 @@ namespace Infrastructure.Services
 				// 3.建立 table <LotNo>
 				await mysqlService.CreateLotTableIfNotExist(request.LotNo); // DDL 無法 rollback -> 移出交易控制
 
+				// 4.依據 TileID 查詢前次序號 (交易控制1)
+				string lastSn = await mysqlService.GetLastSn(tileId); // *** 驗證階段改直接從正式區取得
+
 				// 交易控制
 				//var mysqlRepo = repoContainer.LaserRepo;
 				using (var conn = repoContainer.LaserRepo.CreateOpenConnection()) // 立即開啟連線 (若不支援，會拋例外)
@@ -66,8 +71,8 @@ namespace Infrastructure.Services
 				{
 					try
 					{
-						// 4.依據 TileID 查詢前次序號 (交易控制1)
-						string lastSn = await mysqlService.GetLastSn(tileId, conn, tx); // 接收 conn/tx
+						//// 4.依據 TileID 查詢前次序號 (交易控制1) *** 驗證階段改直接從正式區取得
+						//string lastSn = await mysqlService.GetLastSn(tileId, conn, tx); // 接收 conn/tx
 
 						// 5.依據 Qty 產生所需 n 筆編碼
 						List<string> snList = snService.GenerateSnList(lastSn, request.Qty);
@@ -104,6 +109,9 @@ namespace Infrastructure.Services
 						// 9.寫入 table product (交易控制4)
 						//await productService.UpsertProductRecord(product, request.ProductNo);
 						await mysqlService.InsertOrUpdateProduct(product, conn, tx);
+
+						// ***  FOR 驗證階段, 寫入 log
+						await mysqlService.InsertToApiLog(request.LotNo, sns, conn, tx);
 
 						// 10.確認所有程序 Ok 再提交交易
 						tx.Commit();
@@ -350,12 +358,31 @@ namespace Infrastructure.Services
 	public class LaserMarkingFrontendMySqlService
 	{
 		private readonly IRepository _repo;
+		private readonly IRepository _repoProd;
 		public LaserMarkingFrontendMySqlService(RepositoryContainer repoContainer)
 		{
 			_repo = repoContainer.LaserRepo;
+			_repoProd = repoContainer.LaserRepoProd;
 		}
 
-		// 查詢前次 SN
+
+		// 查詢前次 SN : for 驗證階段查詢正式區
+		public async Task<string> GetLastSn(string tileId)
+		{
+			string lastSN = await _repoProd.QueryFirstOrDefaultAsync<string>(
+				"Select LastSN From product Where TileID = @TileId Order By LastSN Desc Limit 1",
+				new { TileId = tileId });
+
+			if (string.IsNullOrEmpty(lastSN))
+			{
+				// 找不到記錄回傳 null, 將從 001 開始編碼
+				return null;
+			}
+
+			return lastSN;
+		}
+
+		// 查詢前次 SN : for 測試區
 		public async Task<string> GetLastSn(string tileId, IDbConnection conn, IDbTransaction tx)
 		{
 			string lastSN = await conn.QueryFirstOrDefaultAsync<string>(
@@ -519,6 +546,34 @@ namespace Infrastructure.Services
 			{
 				Console.WriteLine($"處理 Table Product.LotNO: {product.LotNO} 發生錯誤: {ex.Message}");
 				throw new Exception($"處理 Table Product.LotNO: {product.LotNO} 發生錯誤: {ex.Message}");
+			}
+		}
+
+		// INSERT API log for 驗證階段
+		public async Task InsertToApiLog(string lotNo, List<LaserMarkingFrontendGeneratedSn> sns, IDbConnection conn, IDbTransaction tx)
+		{
+			try
+			{
+				string sql = $@"INSERT INTO `apicomparelog` (Source, LotNo, Side, TableName, RowCount, TileIdStart, TileIdEnd, CreatedBy, CompareStatus, CompareNote)
+								VALUES ('API', @lotNo, 'Top', @lotNo, @rowCount, @tileIdStart, @tileIdEnd, 'API', 'Pendding', null);";
+
+				var first = sns.FirstOrDefault();
+				var last = sns.LastOrDefault();
+
+				var parameters = new
+				{
+					lotNo = lotNo,
+					rowCount = sns.Count,
+					tileIdStart = first != null ? $"{first.TileId}{first.Sn}" : null,
+					tileIdEnd = last != null ? $"{last.TileId}{last.Sn}" : null
+				};
+
+				await conn.ExecuteAsync(sql, parameters, tx);
+				Console.WriteLine($"已成功寫入APILOG");
+			}
+			catch (Exception ex)
+			{
+				Console.WriteLine($"INSERT APILOG時發生錯誤，Lot: {lotNo}, 訊息: {ex.Message}");
 			}
 		}
 	}
