@@ -22,6 +22,7 @@ using Core.Entities.Scada;
 using Infrastructure.Data.Factories;
 using Infrastructure.Utilities;
 using Core.Entities.LaserMarkingFrontend;
+using Core.Entities.RecycleLotCopy;
 
 namespace CimAPI.Controllers
 {
@@ -577,7 +578,37 @@ namespace CimAPI.Controllers
 
 			var result = await _facade.WriteScadaTagAsync(request);
 			return result.Result == "Ok" ? Ok(result) : BadRequest(result);
-		}
+        }
 
-	}
+
+        /// <summary>
+        /// RecycleLotCopy功能
+        /// 
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        ///	{
+        /// "environment": "Test",
+        /// "action": "RecycleLotCopy",
+        /// "Emapping": "Y",
+        /// "productno": "2DP000005344",
+        /// "lotno": "WB2025500147-D00045",
+        /// "m_lotno": "WB2025300115-A00004",
+        /// "tileID": ["JKH0X5F", "JKH0X5L", "JKH0X5M", "JKH0X5Y", "JKH0X5Z", "JKH0X83", "JKH0X84", "JKH0X85", "JKH0X88", "JKH0X8N"]
+        /// }
+        /// action:
+        /// 1. RecycleLotCopy
+        /// </para>
+        /// </remarks>
+        /// 
+        [Route("[controller]/RecycleLotCopy")]
+        [HttpPost]
+        public async Task<IActionResult> RecycleLotCopy([FromBody] RecycleLotCopyRequest request)
+        {
+            var result = await _facade.RecycleLotCopyAsync(request);
+            return result.Result == "Ok" ? Ok(result) : BadRequest(result);
+        }
+
+       
+    }
 }
