@@ -62,7 +62,7 @@ namespace Infrastructure.Services
 				await mysqlService.CreateLotTableIfNotExist(request.LotNo); // DDL 無法 rollback -> 移出交易控制
 
 				// 4.依據 TileID 查詢前次序號 (交易控制1)
-				string lastSn = await mysqlService.GetLastSn(tileId); // *** 驗證階段改直接從正式區取得
+				//string lastSn = await mysqlService.GetLastSn(tileId); // *** 驗證階段改直接從正式區取得
 
 				// 交易控制
 				//var mysqlRepo = repoContainer.LaserRepo;
@@ -72,7 +72,7 @@ namespace Infrastructure.Services
 					try
 					{
 						//// 4.依據 TileID 查詢前次序號 (交易控制1) *** 驗證階段改直接從正式區取得
-						//string lastSn = await mysqlService.GetLastSn(tileId, conn, tx); // 接收 conn/tx
+						string lastSn = await mysqlService.GetLastSn(tileId, conn, tx); // 接收 conn/tx
 
 						// 5.依據 Qty 產生所需 n 筆編碼
 						List<string> snList = snService.GenerateSnList(lastSn, request.Qty);
