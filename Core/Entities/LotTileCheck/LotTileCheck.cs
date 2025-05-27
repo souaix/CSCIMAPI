@@ -39,15 +39,20 @@
 	{
 		public string TileId { get; set; }
 		public string LotNo { get; set; }
+		public string OpNo { get; set; }
+
 		public DateTime? RecordDate { get; set; }
+
+		public string SourceCol { get; set; } 
+
 
 		public string TH_TileId { get; set; }
 		public string TH_TileId_2 { get; set; }
 
-		public string CS_TileId { get; set; }
-		public string CS_TileId2 { get; set; }
-		public string CS_TileId3 { get; set; }
-		public string CS_TileId4 { get; set; }
+		//public string CS_TileId { get; set; }
+		//public string CS_TileId2 { get; set; }
+		//public string CS_TileId3 { get; set; }
+		//public string CS_TileId4 { get; set; }
 
 		//public string Panel_Id1 { get; set; }
 		//public string Panel_Id2 { get; set; }
