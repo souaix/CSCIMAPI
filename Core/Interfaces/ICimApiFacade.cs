@@ -1,4 +1,5 @@
-﻿using Core.Entities.DboEmap;
+﻿using Core.Entities.CheckLimit;
+using Core.Entities.DboEmap;
 using Core.Entities.DefectCount;
 using Core.Entities.LaserMarking;
 using Core.Entities.LaserMarkingFrontend;
@@ -31,8 +32,8 @@ namespace Core.Interfaces
 		Task<ApiReturn<YieldRecordDataResult>> LoadYieldRecordDataAsync(YieldRecordDataRequest request);
 		Task<ApiReturn<DefectCountResponse>> CountDefectsAsync(DefectCountRequest request);
 		Task<ApiReturn<bool>> WriteScadaTagAsync(ScadaWriteRequest request);
-
         Task<ApiReturn<string>> RecycleLotCopyAsync(RecycleLotCopyRequest request);
+        Task<ApiReturn<CheckLimitResponse>> CheckLimitAsync(CheckLimitRequest request);
 
     }
 }
