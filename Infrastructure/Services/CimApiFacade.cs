@@ -12,6 +12,7 @@ using Core.Entities.DefectCount;
 using Core.Entities.Scada;
 using Core.Entities.LaserMarkingFrontend;
 using Core.Entities.RecycleLotCopy;
+using Core.Entities.CheckLimit;
 
 
 namespace Infrastructure.Services
@@ -30,6 +31,7 @@ namespace Infrastructure.Services
         private readonly IDefectCountService _defectCountService;
 		private readonly IScadaService _scadaService;
         private readonly IRecycleLotCopyService _recycleLotCopyService;
+        private readonly ICheckLimitService _checkLimitService;
 
         public CimApiFacade(
 			IInsertWipDataService insertWipDataService,
@@ -43,7 +45,8 @@ namespace Infrastructure.Services
 			IYieldRecordDataService yieldRecordDataService,
             IDefectCountService defectCountService,
 			IScadaService scadaService,
-            IRecycleLotCopyService recycleLotCopyService)
+            IRecycleLotCopyService recycleLotCopyService,
+            ICheckLimitService checkLimitService)
 		{
 			_insertWipDataService = insertWipDataService;
 			_laserMarkingService = laserMarkingService;
@@ -57,6 +60,7 @@ namespace Infrastructure.Services
 			_defectCountService = defectCountService;
 			_scadaService = scadaService;
             _recycleLotCopyService = recycleLotCopyService;
+            _checkLimitService = checkLimitService;
         }
 
 		public Task<ApiReturn<int>> InsertWipDataAsync(string environment, string tableName, TblMesWipData_Record request)
@@ -126,7 +130,11 @@ namespace Infrastructure.Services
 		{  
 			return _recycleLotCopyService.ProcessRecycleLotCopyAsync(request); 
 		}
-			
+        public Task<ApiReturn<CheckLimitResponse>> CheckLimitAsync(CheckLimitRequest request)
+        {
+            return _checkLimitService.CheckLimitAsync(request);
+        }
+
 
         public async Task<ApiReturn<bool>> WriteScadaTagAsync(ScadaWriteRequest request)
 		{

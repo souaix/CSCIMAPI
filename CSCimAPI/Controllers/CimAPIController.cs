@@ -23,6 +23,7 @@ using Infrastructure.Data.Factories;
 using Infrastructure.Utilities;
 using Core.Entities.LaserMarkingFrontend;
 using Core.Entities.RecycleLotCopy;
+using Core.Entities.CheckLimit;
 
 namespace CimAPI.Controllers
 {
@@ -609,6 +610,49 @@ namespace CimAPI.Controllers
             return result.Result == "Ok" ? Ok(result) : BadRequest(result);
         }
 
-       
+
+        /// <summary>
+        /// CheckLimit功能
+        /// 
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        ///	{
+        /// "environment": "Production",
+		/// "action": "CheckLimit",
+        /// "deviceid": "PL-014",
+        /// "opno": "BDP000G1",
+        /// "lotno": "WB2025400110-A00005"
+        /// }
+		/// 
+        /// action:
+        /// 1. CheckLimit
+        /// </para>
+        /// </remarks>
+        /// 
+        [Route("[controller]/CheckLimit")]
+        [HttpPost]
+        public async Task<IActionResult> CheckLimit([FromBody] CheckLimitRequest request)
+        {
+            if (request == null ||
+                string.IsNullOrWhiteSpace(request.Environment) ||
+                string.IsNullOrWhiteSpace(request.Action) ||
+                string.IsNullOrWhiteSpace(request.DeviceId) ||
+                string.IsNullOrWhiteSpace(request.Opno) ||
+                string.IsNullOrWhiteSpace(request.Lotno))
+            {
+                return BadRequest(ApiReturn<string>.Failure("參數不完整"));
+            }
+
+            if (request.Action != "CheckLimit")
+            {
+                return BadRequest(ApiReturn<string>.Failure("不支援的 Action"));
+            }
+
+            var result = await _facade.CheckLimitAsync(request);
+            return result.Result == "Ok" ? Ok(result) : BadRequest(result);
+        }
+
+
     }
 }
