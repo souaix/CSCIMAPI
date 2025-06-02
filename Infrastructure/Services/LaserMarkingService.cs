@@ -139,7 +139,9 @@ namespace Infrastructure.Services
                     return ApiReturn<string>.Failure("CustomerConfig not found!");
 
                 // 檢查 StepCode 是否存在於 opno_prefix
-                bool stepCodeExistsInOpnoPrefix = await repository.QueryFirstOrDefaultAsync<bool>(
+                //20250602 改撈正式 MySQL
+                //bool stepCodeExistsInOpnoPrefix = await repository.QueryFirstOrDefaultAsync<bool>(
+                bool stepCodeExistsInOpnoPrefix = await mySqlProd.QueryFirstOrDefaultAsync<bool>(
                     "SELECT COUNT(*) > 0 FROM opno_prefix WHERE opno = @StepCode",
                     new { StepCode = request.StepCode }
                 );

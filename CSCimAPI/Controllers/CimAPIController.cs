@@ -613,20 +613,25 @@ namespace CimAPI.Controllers
 
         /// <summary>
         /// CheckLimit功能
-        /// 
+		///
         /// </summary>
         /// <remarks>
         /// <para>
         ///	{
         /// "environment": "Production",
-		/// "action": "CheckLimit",
+        /// "action": "CheckLimit",
         /// "deviceid": "PL-014",
         /// "opno": "BDP000G1",
         /// "lotno": "WB2025400110-A00005"
         /// }
-		/// 
+        /// 
         /// action:
         /// 1. CheckLimit
+        /// MESPD003 設備參數異常   ->MESPD-HOLD
+        /// MESPD001 無生產批       ->MESPD-HOLD
+        /// MESPD005 WIP設備錯誤    ->MESPD-HOLD
+        /// MESPD002 設備參數正常   ->可正常CHECK-OUT
+        /// MESPD004 MES無設備主檔  ->無法CHECK-OUT請通知IT
         /// </para>
         /// </remarks>
         /// 
