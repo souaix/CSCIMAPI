@@ -17,6 +17,12 @@ namespace Infrastructure.Services
 
         public async Task<ApiReturn<CheckLimitResponse>> CheckLimitAsync(CheckLimitRequest request)
         {
+            // MESPD003 設備參數異常   ->MESPD-HOLD
+            // MESPD001 無生產批       ->MESPD-HOLD
+            // MESPD005 WIP設備錯誤    ->MESPD-HOLD
+            // MESPD002 設備參數正常   ->可正常CHECK-OUT
+            // MESPD004 MES無設備主檔  ->無法CHECK-OUT請通知IT
+
             var result = new CheckLimitResponse();
             var repoDict = RepositoryHelper.CreateRepositories(request.Environment, _repositoryFactory);
 
