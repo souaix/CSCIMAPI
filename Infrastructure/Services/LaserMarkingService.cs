@@ -139,9 +139,9 @@ namespace Infrastructure.Services
                     return ApiReturn<string>.Failure("CustomerConfig not found!");
 
                 // 檢查 StepCode 是否存在於 opno_prefix
-                //20250602 改撈正式 MySQL
-                //bool stepCodeExistsInOpnoPrefix = await repository.QueryFirstOrDefaultAsync<bool>(
-                bool stepCodeExistsInOpnoPrefix = await mySqlProd.QueryFirstOrDefaultAsync<bool>(
+                //20250602 先撈測試區，之後再改正式區 MySQL
+                bool stepCodeExistsInOpnoPrefix = await repository.QueryFirstOrDefaultAsync<bool>(
+                //bool stepCodeExistsInOpnoPrefix = await mySqlProd.QueryFirstOrDefaultAsync<bool>(
                     "SELECT COUNT(*) > 0 FROM opno_prefix WHERE opno = @StepCode",
                     new { StepCode = request.StepCode }
                 );
@@ -660,9 +660,15 @@ namespace Infrastructure.Services
             //    "SELECT opno FROM opno_prefix WHERE opno = @StepCode",
             //    new { StepCode = stepCode }
             //) != null;
-            bool stepCodeExists = await conn.QueryFirstOrDefaultAsync<string>(
-                "SELECT opno FROM opno_prefix WHERE opno = @StepCode",
+            //20250602 opno_prefix 改抓正式 MySQL
+            bool stepCodeExists = await conn.QueryFirstOrDefaultAsync<bool>(
+                 "SELECT  COUNT(*) > 0 FROM opno_prefix WHERE opno = @StepCode",
                 new { StepCode = stepCode }, tx) != null;
+
+            //bool stepCodeExists = await mySqlProd.QueryFirstOrDefaultAsync<bool>(
+            //       "SELECT COUNT(*) > 0 FROM opno_prefix WHERE opno = @StepCode",
+            //       new { StepCode = stepCode }
+            //   );
 
             // 初始化需建立的資料表清單
             List<string> tableNames = new();
