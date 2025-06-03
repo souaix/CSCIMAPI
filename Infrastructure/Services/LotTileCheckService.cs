@@ -7,6 +7,9 @@ using Infrastructure.Utilities;
 using Mysqlx.Crud;
 using System.Collections.Concurrent;
 using System.Text;
+using Infrastructure.Helpers;
+using System.Data;
+using Core.Entities.ArgoCim;
 
 namespace Infrastructure.Services
 {
@@ -60,6 +63,15 @@ namespace Infrastructure.Services
 				var deviceIds = rule.DeviceIds?.Split(',').Select(d => d.Trim()).ToArray() ?? Array.Empty<string>();
 
 				var laserResults = await LaserInkAsync(repoDbo, request.LotNo, deviceIds, maxDays);
+
+				// 加上 Opno
+				foreach (var row in laserResults)
+				{
+					row.OpNo = request.Opno;
+				}
+				await LotTileIdListHelper.UpsertLotTileIdListAsync(repoCim, laserResults, "MES");
+
+
 				return ApiReturn<object>.Success("完成雷射站比對", laserResults
 					.Select(x => new TileCheckLaserInkDto
 					{
@@ -67,12 +79,8 @@ namespace Infrastructure.Services
 						LotNo = x.LotNo,
 						ResultList = x.ResultList,
 						Reason = x.Reason,
-						RecordDate = x.RecordDate
-						//,
-						//CS_TileId = x.CS_TileId,
-						//CS_TileId2 = x.CS_TileId2,
-						//CS_TileId3 = x.CS_TileId3,
-						//CS_TileId4 = x.CS_TileId4
+						RecordDate = x.RecordDate				
+
 					}).ToList());
 			}
 
@@ -82,7 +90,7 @@ namespace Infrastructure.Services
 			parameters.Add("lotno", request.LotNo);
 			parameters.Add("opnos", opnosToQuery);
 			parameters.Add("days", maxDays);
-
+			
 			int idx = 0;
 			foreach (var group in processGroups)
 			{
@@ -90,7 +98,10 @@ namespace Infrastructure.Services
 				var devs = group.Value;
 
 				string paramName = $"deviceids{idx}";
-				parameters.Add(paramName, devs);
+
+				parameters.Add(paramName, devs.ToArray());   // 保證用陣列
+
+				string inClause = $":{paramName}"; // ← 這是重點，要把 :deviceids0 展開變成文字
 
 				if (idx > 0) unionSql.AppendLine("UNION ALL");
 
@@ -103,19 +114,37 @@ namespace Infrastructure.Services
 				FROM TBLMESWIPDATA_{process}
 				WHERE LOTNO = :lotno
 				  AND STEP IN :opnos
-				  AND DEVICEID IN :{paramName}
+				  AND DEVICEID IN {inClause}
 				  AND TILEID IS NOT NULL
 				  AND RECORDDATE >= TRUNC(SYSDATE) - :days
 				) WHERE RN = 1");
 
 				idx++;
 			}
+			//// 🔍 印出組好的 SQL 與參數值
+			//Console.WriteLine("===== Final SQL Statement =====");
+			//Console.WriteLine(unionSql.ToString());
+
+			//Console.WriteLine("===== Parameters =====");
+			//foreach (var name in parameters.ParameterNames)
+			//{
+			//	var val = parameters.Get<object>(name);
+
+			//	if (val is IEnumerable<string> list && !(val is string))
+			//	{
+			//		Console.WriteLine($"  {name} = ({string.Join(", ", list.Select(x => $"'{x}'"))})");
+			//	}
+			//	else
+			//	{
+			//		Console.WriteLine($"  {name} = {val}");
+			//	}
+			//}
 
 			var records = (await repoDbo.QueryAsync<TblMesWipData_Record>(unionSql.ToString(), parameters)).ToList();
 
 			// 4. 建立雷射蓋印清單
-			var laserTiles = (await repoDbo.QueryAsync<TBLWIPLOTMARKINGDATA>(
-				"SELECT TILEID FROM TBLWIPLOTMARKINGDATA WHERE LOTNO = :lotno",
+			var laserTiles = (await repoCim.QueryAsync<ARGOCIMLOTTILEIDLIST>(
+				"SELECT TILEID FROM ARGOCIMLOTTILEIDLIST WHERE LOTNO = :lotno",
 				new { lotno = request.LotNo })).Select(x => x.TileId).ToHashSet();
 
 			var producedTileSet = records.Select(x => x.TileId).ToHashSet();
@@ -192,6 +221,14 @@ namespace Infrastructure.Services
 				}
 			}
 
+			var converted = LotTileIdListHelper.ConvertToLaserInkFormat(result);
+			// 加上 Opno
+			foreach (var row in converted)
+			{
+				row.OpNo = request.Opno;
+			}
+			await LotTileIdListHelper.UpsertLotTileIdListAsync(repoCim, converted, "MES");
+
 			return ApiReturn<object>.Success("完成比對", result);
 		}
 
@@ -233,154 +270,82 @@ namespace Infrastructure.Services
 		private async Task<List<TileCheckLaserInkDto>> LaserInkAsync(IRepository repo, string lotNo, string[] deviceIds, int daysRange)
 		{
 			var deviceIdSql = string.Join(",", deviceIds.Select(d => $"'{d}'"));
-			/* === 備註 ===
-   1) UNPIVOT 只做兩件事：取 SN、tilevalue
-   2) 需要的 PANEL_IDx 及 CS_TILEIDx，都在最後再用 SN 回原表撈
-*/
+
 			var sql = $@"
-					WITH src AS (
-    SELECT
-        SN,
-        PANEL_ID1, PANEL_ID2, PANEL_ID3, PANEL_ID4,
-        CS_TILEID, CS_TILEID2, CS_TILEID3, CS_TILEID4,
-        TH_TILEID, TH_TILEID_2
-    FROM DBO.TBLMES2DREAD_D
-),
-unpivot_d AS (
-    SELECT
-        SN,
-        tilevalue
-    FROM src
-    UNPIVOT(tilevalue FOR tile IN (
-        CS_TILEID, CS_TILEID2, CS_TILEID3, CS_TILEID4
-    ))
-),
-joined AS (
-    SELECT
-        m.SN,
-        m.CREATEDATE AS RecordDate,
-        m.LOTNO AS LotNo,
-        m.DEVICEID,
-        u.tilevalue AS TileId,
-        s.CS_TILEID, s.CS_TILEID2, s.CS_TILEID3, s.CS_TILEID4,
-        s.TH_TILEID, s.TH_TILEID_2,
-        s.PANEL_ID1, s.PANEL_ID2, s.PANEL_ID3, s.PANEL_ID4,
-        ROW_NUMBER() OVER (PARTITION BY u.tilevalue ORDER BY m.CREATEDATE DESC) AS row_num,
-        DECODE(u.tilevalue, NULL, 0, 1) AS chk1
-    FROM DBO.TBLMES2DREAD_M m
-    JOIN unpivot_d u ON m.SN = u.SN
-    LEFT JOIN src s ON m.SN = s.SN
-    WHERE m.LOTNO = :lotno
-      AND m.DEVICEID IN ({deviceIdSql})
-      AND m.CREATEDATE > (TRUNC(SYSDATE) - :daysRange)
-),
-zz AS (
-    SELECT TILEID, LOTNO, TILEGROUP
-    FROM DBO.TBLWIPLOTMARKINGDATA
-    WHERE LOTNO = :lotno
-      AND ORACLEDATE > (TRUNC(SYSDATE) - :daysRange)
-)
-SELECT
-    j.TileId,
-    j.LotNo,
-    j.RecordDate,
-    j.CS_TILEID, j.CS_TILEID2, j.CS_TILEID3, j.CS_TILEID4,
-    j.TH_TILEID, j.TH_TILEID_2,
-    j.PANEL_ID1, j.PANEL_ID2, j.PANEL_ID3, j.PANEL_ID4,
-    CASE
-        WHEN NVL(j.PANEL_ID1,'*') || NVL(j.PANEL_ID2,'*') || NVL(j.PANEL_ID3,'*') || NVL(j.PANEL_ID4,'*') <> '****'
-         AND (j.PANEL_ID1 IS NULL OR j.PANEL_ID2 IS NULL OR j.PANEL_ID3 IS NULL OR j.PANEL_ID4 IS NULL)
-        THEN 'Black'
-        WHEN j.chk1 <> 1
-        THEN 'Black'
-        ELSE 'White'
-    END AS ResultList,
-    CASE
-        WHEN NVL(j.PANEL_ID1,'*') || NVL(j.PANEL_ID2,'*') || NVL(j.PANEL_ID3,'*') || NVL(j.PANEL_ID4,'*') <> '****'
-         AND (j.PANEL_ID1 IS NULL OR j.PANEL_ID2 IS NULL OR j.PANEL_ID3 IS NULL OR j.PANEL_ID4 IS NULL)
-        THEN 'NG'
-        WHEN j.chk1 <> 1
-        THEN 'NG'
-        ELSE 'PASS'
-    END AS Reason
-FROM joined j
-LEFT JOIN zz ON j.TileId = zz.TILEID AND j.LotNo = zz.LOTNO
-WHERE j.row_num = 1 AND j.TileId IS NOT NULL
-ORDER BY j.TileId";
+					WITH cs_tile_union AS (
+						SELECT SN, 'CS_TILEID' AS SourceCol, CS_TILEID AS TileId
+						FROM DBO.TBLMES2DREAD_D
+						WHERE CS_TILEID IS NOT NULL
+						UNION ALL
+						SELECT SN, 'CS_TILEID2', CS_TILEID2 FROM DBO.TBLMES2DREAD_D WHERE CS_TILEID2 IS NOT NULL
+						UNION ALL
+						SELECT SN, 'CS_TILEID3', CS_TILEID3 FROM DBO.TBLMES2DREAD_D WHERE CS_TILEID3 IS NOT NULL
+						UNION ALL
+						SELECT SN, 'CS_TILEID4', CS_TILEID4 FROM DBO.TBLMES2DREAD_D WHERE CS_TILEID4 IS NOT NULL
+					),
+					joined AS (
+						SELECT
+							t.TileId,
+							t.SourceCol,
+							m.LOTNO,
+							m.DEVICEID,
+							m.CREATEDATE AS RecordDate,
+							d.TH_TILEID, d.TH_TILEID_2,
+							d.PANEL_ID1, d.PANEL_ID2, d.PANEL_ID3, d.PANEL_ID4,
+							ROW_NUMBER() OVER (PARTITION BY t.TileId ORDER BY m.CREATEDATE DESC) AS row_num,
+							DECODE(t.TileId, NULL, 0, 1) AS chk1
+						FROM cs_tile_union t
+						JOIN DBO.TBLMES2DREAD_M m ON t.SN = m.SN
+						JOIN DBO.TBLMES2DREAD_D d ON t.SN = d.SN
+						WHERE m.LOTNO = :lotNo
+						  AND m.DEVICEID IN ({deviceIdSql})
+						  AND m.CREATEDATE > (TRUNC(SYSDATE) - :daysRange)
+					),
+					zz AS (
+						SELECT TILEID, LOTNO, TILEGROUP
+						FROM DBO.TBLWIPLOTMARKINGDATA
+						WHERE LOTNO = :lotNo
+						  AND ORACLEDATE > (TRUNC(SYSDATE) - :daysRange)
+					)
+					SELECT
+						j.TileId,
+						j.SourceCol,
+						j.LotNo,
+						j.RecordDate,
+						j.TH_TILEID, j.TH_TILEID_2,
+						j.PANEL_ID1, j.PANEL_ID2, j.PANEL_ID3, j.PANEL_ID4,
+						CASE
+							WHEN NVL(j.PANEL_ID1,'*') || NVL(j.PANEL_ID2,'*') || NVL(j.PANEL_ID3,'*') || NVL(j.PANEL_ID4,'*') <> '****'
+							 AND (j.PANEL_ID1 IS NULL OR j.PANEL_ID2 IS NULL OR j.PANEL_ID3 IS NULL OR j.PANEL_ID4 IS NULL)
+							THEN 'Black'
+							WHEN j.chk1 <> 1
+							THEN 'Black'
+							ELSE 'White'
+						END AS ResultList,
+						CASE
+							WHEN NVL(j.PANEL_ID1,'*') || NVL(j.PANEL_ID2,'*') || NVL(j.PANEL_ID3,'*') || NVL(j.PANEL_ID4,'*') <> '****'
+							 AND (j.PANEL_ID1 IS NULL OR j.PANEL_ID2 IS NULL OR j.PANEL_ID3 IS NULL OR j.PANEL_ID4 IS NULL)
+							THEN 'NG'
+							WHEN j.chk1 <> 1
+							THEN 'NG'
+							ELSE 'PASS'
+						END AS Reason
+					FROM joined j
+					LEFT JOIN zz ON j.TileId = zz.TILEID AND j.LotNo = zz.LOTNO
+					WHERE j.row_num = 1 AND j.TileId IS NOT NULL
+					ORDER BY j.TileId";
 
+			var displaySql = sql
+				.Replace(":lotNo", $"'{lotNo}'")
+				.Replace(":daysRange", $"{daysRange}");
 
-
-
-			//var sql = $@"
-			//	WITH unpivot_d AS (
-			//		SELECT
-			//			SN,
-			//			PANEL_ID1, PANEL_ID2, PANEL_ID3, PANEL_ID4,
-			//			tilevalue
-			//		FROM (
-			//			SELECT * FROM DBO.TBLMES2DREAD_D
-			//		) d
-			//		UNPIVOT(tilevalue FOR tile IN (
-			//			CS_TILEID, CS_TILEID2, CS_TILEID3, CS_TILEID4
-			//		))
-			//	),
-			//	joined AS (
-			//		SELECT
-			//			m.CREATEDATE AS RecordDate,
-			//			m.LOTNO AS LotNo,
-			//			m.DEVICEID,
-			//			d.tilevalue AS TileId,
-			//			d.PANEL_ID1, d.PANEL_ID2, d.PANEL_ID3, d.PANEL_ID4,
-			//			ROW_NUMBER() OVER (PARTITION BY d.tilevalue ORDER BY m.CREATEDATE DESC) AS row_num,
-			//			DECODE(d.tilevalue, NULL, 0, 1) AS chk1
-			//		FROM DBO.TBLMES2DREAD_M m
-			//		JOIN unpivot_d d ON m.SN = d.SN
-			//		WHERE m.LOTNO = :lotNo
-			//		  AND m.DEVICEID IN ({deviceIdSql})
-			//		  AND m.CREATEDATE > (TRUNC(SYSDATE) - :daysRange)
-			//	),
-			//	zz AS (
-			//		SELECT TILEID, LOTNO, TILEGROUP
-			//		FROM DBO.TBLWIPLOTMARKINGDATA
-			//		WHERE LOTNO = :lotNo
-			//		  AND ORACLEDATE > (TRUNC(SYSDATE) - :daysRange)
-			//	)
-			//	SELECT
-			//		j.TileId,
-			//		j.LotNo,
-			//		j.RecordDate,
-			//		CASE
-			//			WHEN NVL(PANEL_ID1,'*') || NVL(PANEL_ID2,'*') || NVL(PANEL_ID3,'*') || NVL(PANEL_ID4,'*') <> '****'
-			//				AND (PANEL_ID1 IS NULL OR PANEL_ID2 IS NULL OR PANEL_ID3 IS NULL OR PANEL_ID4 IS NULL)
-			//			THEN 'Black'
-			//			WHEN chk1 NOT IN (1)
-			//			THEN 'Black'
-			//			ELSE 'White'
-			//		END AS ResultList,
-			//		CASE
-			//			WHEN NVL(PANEL_ID1,'*') || NVL(PANEL_ID2,'*') || NVL(PANEL_ID3,'*') || NVL(PANEL_ID4,'*') <> '****'
-			//				AND (PANEL_ID1 IS NULL OR PANEL_ID2 IS NULL OR PANEL_ID3 IS NULL OR PANEL_ID4 IS NULL)
-			//			THEN 'NG'
-			//			WHEN chk1 NOT IN (1)
-			//			THEN 'NG'
-			//			ELSE 'PASS'
-			//		END AS Reason
-			//	FROM joined j
-			//	LEFT JOIN zz ON j.TileId = zz.TileId AND j.LotNo = zz.LotNo
-			//	WHERE j.row_num = 1 AND j.TileId IS NOT NULL
-			//	ORDER BY j.TileId";
-
-			Console.WriteLine($@"
-🟢 Final SQL:
-
-{sql.Replace(":lotNo", $"'{lotNo}'")
-				.Replace(":daysRange", $"{daysRange}")
-}");  // ← 用你的 deviceIdSql 實際內容替代
-
+			Console.WriteLine("🟢 Final SQL:");
+			Console.WriteLine(displaySql);
 
 			var data = await repo.QueryAsync<TileCheckLaserInkDto>(sql, new { lotNo, daysRange });
 			return data.ToList();
 		}
+
 
 
 	}

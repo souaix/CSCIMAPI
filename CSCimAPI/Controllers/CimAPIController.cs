@@ -374,7 +374,7 @@ namespace CimAPI.Controllers
 		///{
 		///  "environment": "Production",
 		///  "action": "CHECK",
-		///  "lotno": "WB2024C00093-A00004",
+		///  "lotno": "WB2025200170-A00039",
 		///  "opno" : "BTS00001",
 		///  "deviceid" : "LK-004"
 		///}
@@ -384,17 +384,17 @@ namespace CimAPI.Controllers
 		///{
 		///  "environment": "Production",
 		///  "action": "CHECK",
-		///  "lotno": "WB2025100042-A00006",
+		///  "lotno": "WB2025200170-A00039",
 		///  "opno" : "BTS00091",
 		///  "deviceid" : "FT-044"
 		///}
 		///</para>
 		/// <para>
-		/// 循邊站（多個 Step）:
+		/// 剝片/循邊站:
 		///{
 		///  "environment": "Production",
 		///  "action": "CHECK",
-		///  "lotno": "WB2024C00075-A00040",
+		///  "lotno": "WB2025200170-A00039",
 		///  "opno" : "BTS000D1",
 		///  "deviceid" : "AS-004"
 		///}
@@ -404,7 +404,7 @@ namespace CimAPI.Controllers
 		///{
 		///  "environment": "Production",
 		///  "action": "CHECK",
-		///  "lotno": "WB2024C00158-A00002",
+		///  "lotno": "WB2025200170-A00039",
 		///  "opno" : "BTS00071",
 		///  "deviceid" : "MT-007"
 		///}
@@ -414,7 +414,7 @@ namespace CimAPI.Controllers
 		///{
 		///  "environment": "Production",
 		///  "action": "CHECK",
-		///  "lotno": "WB2024A00196-B00002",
+		///  "lotno": "WB2025200170-A00039",
 		///  "opno" : "BTS000D1",
 		///  "deviceid" : ""
 		///}
@@ -424,7 +424,7 @@ namespace CimAPI.Controllers
 		///{
 		///  "environment": "Production",
 		///  "action": "CHECK",
-		///  "lotno": "WB2025200047-B00020",
+		///  "lotno": "WB2025200170-A00039",
 		///  "opno" : "BTS00071",
 		///  "deviceid" : "AT-001"
 		///}
@@ -434,7 +434,7 @@ namespace CimAPI.Controllers
 		///{
 		///  "environment": "Production",
 		///  "action": "CHECK",
-		///  "lotno": "WB2024C00270-A00288",
+		///  "lotno": "WB2025200170-A00039",
 		///  "opno" : "BTS00061",
 		///  "deviceid" : "LS-025"
 		///}
