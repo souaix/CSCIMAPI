@@ -12,15 +12,21 @@ namespace Infrastructure.Utilities
 		{
 			try
 			{
-				// 註冊 context 中的每個變數
+				// 使用新的 Interpreter 避免變數污染
+				var interpreter = new Interpreter();
+
+				// 註冊變數（全部轉成 string 做比對）
 				foreach (var kvp in context)
 				{
-					// 將字串轉成 C# 可比對的格式（null, "NG", 1, ...）
-					var value = kvp.Value;
-					_interpreter.SetVariable(kvp.Key, value ?? "");
+					interpreter.SetVariable(kvp.Key, kvp.Value?.ToString() ?? "");
 				}
 
-				var result = _interpreter.Eval(formula);
+				// 預處理：去掉包裹的雙引號
+				if (formula.StartsWith("\"") && formula.EndsWith("\""))
+					formula = formula.Substring(1, formula.Length - 2);
+
+				// 執行表達式
+				var result = interpreter.Eval(formula);
 				return result is bool b && b;
 			}
 			catch (Exception ex)

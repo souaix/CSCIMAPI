@@ -33,6 +33,7 @@
 		public string EnableNg { get; set; } // 'Y' or 'N'
 		public string EnableMissingWork { get; set; }
 		public string EnableMixLot { get; set; }
+		public string EnableGroupSync { get; set; }
 	}
 
 	public class TileCheckLaserInkDto
@@ -40,7 +41,7 @@
 		public string TileId { get; set; }
 		public string LotNo { get; set; }
 		public string OpNo { get; set; }
-
+		public string TileGroup { get; set; }
 		public DateTime? RecordDate { get; set; }
 
 		public string SourceCol { get; set; } 
