@@ -140,12 +140,12 @@ namespace Infrastructure.Services
 
                 // 檢查 StepCode 是否存在於 opno_prefix
                 //20250602 先撈測試區，之後再改正式區 MySQL
-                bool stepCodeExistsInOpnoPrefix = await repository.QueryFirstOrDefaultAsync<bool>(
-                //bool stepCodeExistsInOpnoPrefix = await mySqlProd.QueryFirstOrDefaultAsync<bool>(
-                    "SELECT COUNT(*) > 0 FROM opno_prefix WHERE opno = @StepCode",
-                    new { StepCode = request.StepCode }
-                );
-
+                //bool stepCodeExistsInOpnoPrefix = await repository.QueryFirstOrDefaultAsync<bool>(
+                ////bool stepCodeExistsInOpnoPrefix = await mySqlProd.QueryFirstOrDefaultAsync<bool>(
+                //    "SELECT COUNT(*) > 0 FROM opno_prefix WHERE opno = @StepCode",
+                //    new { StepCode = request.StepCode }
+                //);
+                bool stepCodeExistsInOpnoPrefix = await IsStepCodeInOpnoPrefix(request.StepCode, conn, tx);
 
                 // **處理正面編碼**
                 // 4.1 呼叫 GenerateTileIds，處理正面（isBackSide: false）
@@ -301,6 +301,15 @@ namespace Infrastructure.Services
 
             
         }
+
+        private async Task<bool> IsStepCodeInOpnoPrefix(string stepCode, IDbConnection conn, IDbTransaction tx)
+        {
+            return await conn.QueryFirstOrDefaultAsync<bool>(
+                "SELECT COUNT(*) > 0 FROM opno_prefix WHERE opno = @StepCode",
+                new { StepCode = stepCode }, tx
+            );
+        }
+
 
         private Dictionary<string, string> BuildCodeMapping(string rawCodeString)
         {
@@ -661,10 +670,12 @@ namespace Infrastructure.Services
             //    new { StepCode = stepCode }
             //) != null;
             //20250602 opno_prefix 改抓正式 MySQL
-            bool stepCodeExists = await conn.QueryFirstOrDefaultAsync<bool>(
-                 "SELECT  COUNT(*) > 0 FROM opno_prefix WHERE opno = @StepCode",
-                new { StepCode = stepCode }, tx) != null;
+            //bool stepCodeExists = await conn.QueryFirstOrDefaultAsync<bool>(
+            //     "SELECT  COUNT(*) > 0 FROM opno_prefix WHERE opno = @StepCode",
+            //    new { StepCode = stepCode }, tx) != null;
 
+
+            bool stepCodeExists = await IsStepCodeInOpnoPrefix(stepCode, conn, tx);
             //bool stepCodeExists = await mySqlProd.QueryFirstOrDefaultAsync<bool>(
             //       "SELECT COUNT(*) > 0 FROM opno_prefix WHERE opno = @StepCode",
             //       new { StepCode = stepCode }
