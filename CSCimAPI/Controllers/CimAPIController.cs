@@ -246,9 +246,8 @@ namespace CimAPI.Controllers
 			if (request == null ||
 				string.IsNullOrWhiteSpace(request.Environment) ||
 				string.IsNullOrWhiteSpace(request.Lotno) ||
-				string.IsNullOrWhiteSpace(request.Opno) ||
-				request.Diff <= 0 || double.IsNaN(request.Diff)
-)
+				string.IsNullOrWhiteSpace(request.Opno) 
+				)
 			{
 				return BadRequest(ApiReturn<string>.Failure("參數不完整"));
 			}
