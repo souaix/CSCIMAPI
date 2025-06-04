@@ -39,7 +39,8 @@ namespace Infrastructure.Services
                 var existSql = "SELECT COUNT(*) FROM ARGOAPILOTRECYCLEFILERECORD WHERE LOTNO = :LotNo";
                 var count = await repoCim.QueryFirstOrDefaultAsync<int>(existSql, new { LotNo = lotNo });
                 if (count > 0)
-                    return ApiReturn<string>.Failure("該回收批號已經做過搬檔作業。");
+                    //return ApiReturn<string>.Failure("該回收批號已經做過搬檔作業。");
+                    return ApiReturn<string>.Failure("This Recycle LotNo already done the Copy Job.");
 
                 // Step 2: 取得 FTP 設定資料
                 var ftpSql = @"SELECT * FROM ARGOCIMDEVICEFILESETTING 
@@ -79,7 +80,8 @@ namespace Infrastructure.Services
                     var ftpPath =  FtpPathResolver.ResolvePath(setting, lotNo);
                     var exists = await FtpService.DirectoryExistsAsync(setting.FtpSite, ftpPath, setting.PathAccount, setting.PathPassword);
                     if (exists)
-                        return ApiReturn<string>.Failure($"回收批 FTP 目錄已存在：{ftpPath}");
+                        //return ApiReturn<string>.Failure($"回收批 FTP 目錄已存在：{ftpPath}");
+                        return ApiReturn<string>.Failure($"Recycle LotNo FTP directory already exist：{ftpPath}");
                 }
 
                 // Step 4: 檢查母批 FTP 檔案是否存在（Y：TOP/BOT/TEST，N：MERGE）
@@ -88,7 +90,8 @@ namespace Infrastructure.Services
                 {
                     var setting = ftpSettings.FirstOrDefault(x => x.DeviceNo == "H_DIRNO_T_EMP_MOUNT");
                     if (setting == null)
-                        return ApiReturn<string>.Failure("無法取得 H_DIRNO_T_EMP_MOUNT 的 FTP 設定");
+                        //return ApiReturn<string>.Failure("無法取得 H_DIRNO_T_EMP_MOUNT 的 FTP 設定");
+                        return ApiReturn<string>.Failure("Cannot get H_DIRNO_T_EMP_MOUNT FTP configure");
 
                     var mountCode = GetMountCode(mLotNo);
                     var mapFolder = "MAP" + mLotNo.Substring(2, 5);
@@ -108,7 +111,8 @@ namespace Infrastructure.Services
                             var path = baseFtpPath + sourceFolders[folder] + "/" + mLotNo + "/" + tileId + ".txt";
                             var fileBytes = await FtpService.DownloadFileAsync(setting.FtpSite, path, setting.PathAccount, setting.PathPassword);
                             if (fileBytes == null || fileBytes.Length == 0)
-                                return ApiReturn<string>.Failure($"母批 FTP 檔案不存在或為空：{path}");
+                                //return ApiReturn<string>.Failure($"母批 FTP 檔案不存在或為空：{path}");
+                                return ApiReturn<string>.Failure($"Mother LotNo FTP file didn't exist or empty：{path}");
                         }
                     }
                 }
@@ -123,7 +127,8 @@ namespace Infrastructure.Services
                         var ftpPath = FtpPathResolver.ResolvePath(mergeSetting, mLotNo).TrimEnd('/') + "/" + tileId + ".txt";
                         var fileBytes = await FtpService.DownloadFileAsync(mergeSetting.FtpSite, ftpPath, mergeSetting.PathAccount, mergeSetting.PathPassword);
                         if (fileBytes == null || fileBytes.Length == 0)
-                            return ApiReturn<string>.Failure($"母批 FTP 檔案不存在或為空：{ftpPath}");
+                            //return ApiReturn<string>.Failure($"母批 FTP 檔案不存在或為空：{ftpPath}");
+                            return ApiReturn<string>.Failure($"Mother LotNo FTP file didn't exist or empty：{ftpPath}");
                     }
                 }
 
@@ -137,14 +142,16 @@ namespace Infrastructure.Services
                 var yieldSetting = ftpSettings.FirstOrDefault(x => x.DeviceNo == yieldDeviceNo);
 
                 if (yieldSetting == null)
-                    return ApiReturn<string>.Failure("無法取得 TXT YIELD RECORD 測試目錄 FTP 設定");
+                    //return ApiReturn<string>.Failure("無法取得 TXT YIELD RECORD 測試目錄 FTP 設定");
+                    return ApiReturn<string>.Failure("Cannot get TXT YIELD RECORD test directory FTP configure");
 
                 var yieldFilePath = FtpPathResolver.ResolvePath(yieldSetting, request.LotNo, request.ProductNo).TrimEnd('/') + "/" + request.LotNo + ".txt";
                 //var yieldExists = await FtpService.DirectoryExistsAsync(yieldSetting.FtpSite, yieldFilePath, yieldSetting.PathAccount, yieldSetting.PathPassword);
                 var yieldExists = await FtpService.FileExistsAsync(yieldSetting.FtpSite, yieldFilePath, yieldSetting.PathAccount, yieldSetting.PathPassword);
 
                 if (yieldExists)
-                    return ApiReturn<string>.Failure("TXT YIELD RECORD 檔案已存在，禁止覆蓋：" + yieldFilePath);
+                    //return ApiReturn<string>.Failure("TXT YIELD RECORD 檔案已存在，禁止覆蓋：" + yieldFilePath);
+                    return ApiReturn<string>.Failure("TXT YIELD RECORD file already exist,not allow overwrite：" + yieldFilePath);
 
                 // Step 5: 建立暫存資料夾結構 C:\TEMP\{LOTNO}\...
 
@@ -159,7 +166,8 @@ namespace Infrastructure.Services
                 {
                     var setting = ftpSettings.FirstOrDefault(x => x.DeviceNo == "H_DIRNO_T_EMP_MOUNT");
                     if (setting == null)
-                        return ApiReturn<string>.Failure("無法取得 H_DIRNO_T_EMP_MOUNT 的 FTP 設定");
+                        //return ApiReturn<string>.Failure("無法取得 H_DIRNO_T_EMP_MOUNT 的 FTP 設定");
+                        return ApiReturn<string>.Failure("Cannot get  H_DIRNO_T_EMP_MOUNT FTP configure");
 
                     var mountCode = GetMountCode(mLotNo);
                     var mapFolder = "MAP" + mLotNo.Substring(2, 5);
@@ -186,14 +194,16 @@ namespace Infrastructure.Services
                 {
                     var mergeSetting = ftpSettings.FirstOrDefault(x => x.DeviceNo == "K_DIRNO_T_EMP_FTP_MERGE");
                     if (mergeSetting == null)
-                        return ApiReturn<string>.Failure("無法取得 FTP MERGE 設定");
+                        //return ApiReturn<string>.Failure("無法取得 FTP MERGE 設定");
+                        return ApiReturn<string>.Failure("Cannot get FTP MERGE configure");
 
                     foreach (var tileId in request.TileID)
                     {
                         var ftpPath = FtpPathResolver.ResolvePath(mergeSetting, mLotNo).TrimEnd('/') + "/" + tileId + ".txt";
                         var fileBytes = await FtpService.DownloadFileAsync(mergeSetting.FtpSite, ftpPath, mergeSetting.PathAccount, mergeSetting.PathPassword);
                         if (fileBytes == null || fileBytes.Length == 0)
-                            return ApiReturn<string>.Failure($"FTP 檔案不存在或為空：{ftpPath}");
+                            //return ApiReturn<string>.Failure($"FTP 檔案不存在或為空：{ftpPath}");
+                            return ApiReturn<string>.Failure($"FTP file didn't exist or empty：{ftpPath}");
 
                         foreach (var folder in folders)
                         {
@@ -204,7 +214,8 @@ namespace Infrastructure.Services
                 }
                 else
                 {
-                    return ApiReturn<string>.Failure("Emapping 欄位格式錯誤，請傳入 'Y' 或 'N'");
+                    //return ApiReturn<string>.Failure("Emapping 欄位格式錯誤，請傳入 'Y' 或 'N'");
+                    return ApiReturn<string>.Failure("Emapping culomn error，please write in  'Y' or 'N'");
                 }
 
                 // Step 7: TODO - 上傳回收批資料至 FTP 目錄
@@ -241,7 +252,8 @@ namespace Infrastructure.Services
                     }
 
                     if (setting == null)
-                        return ApiReturn<string>.Failure($"找不到上傳目的 FTP 設定：{folder}");
+                        //return ApiReturn<string>.Failure($"找不到上傳目的 FTP 設定：{folder}");
+                        return ApiReturn<string>.Failure($"Cannot fine upload FTP configure：{folder}");
 
                     var baseFtpPath = FtpPathResolver.ResolvePath(setting, lotNo).TrimEnd('/') + "/";
                     // Step 7.0.1: 若 FTP 回收批目錄不存在，則先建立
@@ -256,7 +268,8 @@ namespace Infrastructure.Services
                     {
                         var filePath = Path.Combine(tempRoot, folder, tileId + ".txt");
                         if (!File.Exists(filePath))
-                            return ApiReturn<string>.Failure($"暫存檔案遺失：{filePath}");
+                            //return ApiReturn<string>.Failure($"暫存檔案遺失：{filePath}");
+                            return ApiReturn<string>.Failure($"Temp file Lost：{filePath}");
 
                         var content = await File.ReadAllBytesAsync(filePath);
                         var ftpFullPath = baseFtpPath + tileId + ".txt";
@@ -273,7 +286,8 @@ namespace Infrastructure.Services
 
                     var motherTxtBytes = await FtpService.DownloadFileAsync(yieldSetting.FtpSite, txtSourcePath, yieldSetting.PathAccount, yieldSetting.PathPassword);
                     if (motherTxtBytes == null || motherTxtBytes.Length == 0)
-                        return ApiReturn<string>.Failure("無法下載母批 TXT YIELD 檔案：" + txtSourcePath);
+                        //return ApiReturn<string>.Failure("無法下載母批 TXT YIELD 檔案：" + txtSourcePath);
+                        return ApiReturn<string>.Failure("Cannot Download Mother Lotno TXT YIELD File：" + txtSourcePath);
 
                     var originalMotherPath = Path.Combine("C:\\TEMP", lotNo, "mother_" + mLotNo + ".txt");
                     await File.WriteAllBytesAsync(originalMotherPath, motherTxtBytes);
@@ -285,7 +299,8 @@ namespace Infrastructure.Services
                     var lines = (await File.ReadAllLinesAsync(originalMotherPath)).ToList();
 
                     if (lines.Count < 4)
-                        return ApiReturn<string>.Failure("母批 TXT 格式錯誤，行數不足：" + txtSourcePath);
+                        //return ApiReturn<string>.Failure("母批 TXT 格式錯誤，行數不足：" + txtSourcePath);
+                        return ApiReturn<string>.Failure("Mother LotNo txt file error，row count too low：" + txtSourcePath);
 
                     var tileSet = new HashSet<string>(request.TileID);
                     var fixedLines = lines.Take(3).ToList();
@@ -344,11 +359,13 @@ namespace Infrastructure.Services
                     catch (Exception ex)
                     {
                         tran.Rollback();
-                        return ApiReturn<string>.Failure("Step 8 寫入資料庫失敗，已回滾交易：" + ex.Message);
+                        //return ApiReturn<string>.Failure("Step 8 寫入資料庫失敗，已回滾交易：" + ex.Message);
+                        return ApiReturn<string>.Failure("Step 8 Insert DB Fail，Already Rollback Transaction：" + ex.Message);
                     }
                 }
 
-                return ApiReturn<string>.Success("搬檔成功，所有 Tile 檔案已上傳並寫入資料表", lotNo);
+                //return ApiReturn<string>.Success("搬檔成功，所有 Tile 檔案已上傳並寫入資料表", lotNo);
+                return ApiReturn<string>.Success("Copy File Success", lotNo);
             }
             catch (Exception ex)
             {
