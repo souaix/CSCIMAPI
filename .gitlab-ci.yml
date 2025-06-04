@@ -13,10 +13,11 @@ build_job:
     - CS-CIM
   script:
     - echo "Start Build..."
+    - cd CSCIMAPI
     - dotnet --version
-    - dotnet restore
-    - dotnet build CSCIMAPI/CSCimAPI.csproj --configuration Release
-    - dotnet publish CSCIMAPI/CSCimAPI.csproj -c Release -o publish
+    - dotnet restore CSCimAPI.csproj
+    - dotnet build CSCimAPI.csproj --configuration Release
+    - dotnet publish CSCimAPI.csproj -c Release -o ../publish
   artifacts:
     paths:
       - publish/
@@ -31,16 +32,12 @@ scan_job:
     - '& "D:\Tools\DevSkim\devskim.exe" analyze -I . -r rules.json -f sarif -O scan_result.sarif -g rules.json, Program.cs'    
     - 'type scan_result.sarif'
     - D:\Anaconda3\python.exe sarif_to_html.py scan_result.sarif scan_report.html
-
-
   artifacts:
     paths:
       - rules.json
       - scan_result.sarif
       - scan_report.html
-
     expire_in: 1 hour
-
 
 deploy_job:
   stage: deploy

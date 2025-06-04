@@ -13,5 +13,8 @@
 		public string Reason { get; set; }           // REASON - VARCHAR2(30)
 		public DateTime? CreateDate { get; set; }    // CREATEDATE - DATE
 		public string Creator { get; set; }          // CREATOR - VARCHAR2(30)
+		public DateTime? UpdateDate { get; set; }    // CREATEDATE - DATE
+		public string Updater { get; set; }          // CREATOR - VARCHAR2(30)
+		public string TileGroup { get; set; }
 	}
 }
