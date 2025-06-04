@@ -16,5 +16,6 @@
 		public DateTime? UpdateDate { get; set; }    // CREATEDATE - DATE
 		public string Updater { get; set; }          // CREATOR - VARCHAR2(30)
 		public string TileGroup { get; set; }
+		public string OriginalTileID { get; set; }
 	}
 }

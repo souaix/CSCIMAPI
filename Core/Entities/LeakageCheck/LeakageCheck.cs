@@ -7,7 +7,7 @@
 		public string Opno { get; set; }
 		public string Lotno { get; set; }
 		public string Deviceid { get; set; }
-		public double Diff { get; set; }
+		
 	}
 
 	public class LeakageAnomalyDto
@@ -31,4 +31,15 @@
 		public string V008 { get; set; }
 		public DateTime RECORDDATE { get; set; }
 	}
+
+	public class RuleCheckDefinition
+	{
+		public string Opno { get; set; }
+		public string DeviceIds { get; set; }
+
+		public int? DaysRange { get; set; }
+		public int? Diff { get; set; }
+
+	}
+
 }

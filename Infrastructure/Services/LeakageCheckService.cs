@@ -9,7 +9,6 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 using Infrastructure.Utilities;
-using Core.Entities.LotTileCheck;
 using Microsoft.Extensions.Hosting;
 
 namespace Infrastructure.Services
@@ -27,7 +26,7 @@ namespace Infrastructure.Services
 
 		public async Task<ApiReturn<List<LeakageAnomalyDto>>> LeakageCheckAsync(LeakageCheckRequest request)
 		{
-			_logger.LogInformation($"[LeakageCheck] Request - lotno: {request.Lotno}, opno: {request.Opno}, deviceid: {request.Deviceid}, diff: {request.Diff}");
+			_logger.LogInformation($"[LeakageCheck] Request - lotno: {request.Lotno}, opno: {request.Opno}, deviceid: {request.Deviceid}");
 
 			//var (repoDbo, repoCim, _) = RepositoryHelper.CreateRepositories(request.Environment, _repositoryFactory);
 			var repositories = RepositoryHelper.CreateRepositories(request.Environment, _repositoryFactory);
@@ -39,11 +38,13 @@ namespace Infrastructure.Services
 
 			// 新增：查詢規則表決定最大天數
 			var rules = (await repoCim.QueryAsync<RuleCheckDefinition>(
-				@"SELECT DAYSRANGE 
-				  FROM ARGOAPILOTTILERULECHECK 
+				@"SELECT DAYSRANGE ,DIFF
+				  FROM ARGOAPILEAKAGERULECHECK 
 				  WHERE OPNO IN :opnos",
 				new { opnos = opnosToQuery })).ToList();
 			var maxDays = rules.Max(r => r.DaysRange ?? 90);
+			var maxDiff = rules.Max(r => r.Diff ?? 30);
+
 
 			var process = await DeviceProcessHelper.GetProcessByDeviceIdAsync(repoDbo, request.Deviceid);
 			string tableName = $"TBLMESWIPDATA_{process}";
@@ -95,12 +96,12 @@ namespace Infrastructure.Services
 				steps = opnosToQuery,
 				deviceids = deviceIdsToQuery,
 				daysRange = maxDays,
-				diff = request.Diff
+				diff = maxDiff
 			}))?.ToList();
 
 			if (records != null && records.Any())
 			{
-				string msg = $"TILEID 數 {records.Count}，存在 NG/OK 差異超過 {request.Diff}";
+				string msg = $"TILEID 數 {records.Count}，存在 NG/OK 差異超過 {maxDiff}";
 				_logger.LogWarning("[LeakageCheck] Fail - " + msg);
 				return ApiReturn<List<LeakageAnomalyDto>>.Failure(msg, records);
 			}
@@ -122,10 +123,12 @@ namespace Infrastructure.Services
 
 			var rules = (await repoCim.QueryAsync<RuleCheckDefinition>(
 				@"SELECT DAYSRANGE 
-				  FROM ARGOAPILOTTILERULECHECK 
+				  FROM ARGOAPILEAKAGERULECHECK 
 				  WHERE OPNO IN :opnos",
 				new { opnos = opnosToQuery })).ToList();
 			var maxDays = rules.Max(r => r.DaysRange ?? 90);
+			maxDays = 120;
+
 
 			var process = await DeviceProcessHelper.GetProcessByDeviceIdAsync(repoDbo, request.Deviceid);
 			string tableName = $"TBLMESWIPDATA_{process}";
