@@ -624,7 +624,13 @@ namespace CimAPI.Controllers
         /// "opno": "BDP000G1",
         /// "lotno": "WB2025400110-A00005"
         /// }
-        /// 
+        /// {
+	    ///"environment": "Production",
+	    ///"action": "CheckLimit",
+	    ///"deviceid": "CR-060",  
+	    ///"opno": "BLS001G1",
+	    ///"lotno": "WB2025500189-A00032"
+	    ///}
         /// action:
         /// 1. CheckLimit
         /// MESPD003 設備參數異常   ->MESPD-HOLD
@@ -635,7 +641,7 @@ namespace CimAPI.Controllers
         /// </para>
         /// </remarks>
         /// 
-        [Route("[controller]/CheckLimit")]
+    [Route("[controller]/CheckLimit")]
         [HttpPost]
         public async Task<IActionResult> CheckLimit([FromBody] CheckLimitRequest request)
         {

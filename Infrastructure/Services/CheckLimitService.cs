@@ -26,14 +26,20 @@ namespace Infrastructure.Services
             var result = new CheckLimitResponse();
             var repoDict = RepositoryHelper.CreateRepositories(request.Environment, _repositoryFactory);
 
+            if (!repoDict.TryGetValue("CsCimEmap", out var repoCsCim) ||
+                !repoDict.TryGetValue("DboEmap", out var repoDbo))
+                return ApiReturn<CheckLimitResponse>.Failure("找不到必要的資料庫設定");
 
-            if (!repoDict.TryGetValue("DboEmap", out var repoDbo))
-                return ApiReturn<CheckLimitResponse>.Failure("找不到 DboEmap 資料庫設定");
+            
 
             // 檢查設備是否存在於 TBLMESDEVICELIST
             //Step 1：查設備主檔與製程名
-            var device = await repoDbo.QueryFirstOrDefaultAsync<dynamic>(
-                "SELECT DEVICEID, PROCESS FROM DBO.TBLMESDEVICELIST WHERE DEVICEID = :DeviceId",
+            //var device = await repoDbo.QueryFirstOrDefaultAsync<dynamic>(
+            //    "SELECT DEVICEID, PROCESS FROM DBO.TBLMESDEVICELIST WHERE DEVICEID = :DeviceId",
+            //    new { DeviceId = request.DeviceId });
+
+            var device = await repoCsCim.QueryFirstOrDefaultAsync<dynamic>(
+                "SELECT DEVICENO, DATAPROCESS FROM ARGOSCADADEVICEBASIS WHERE DEVICENO = :DeviceId",
                 new { DeviceId = request.DeviceId });
 
             if (device == null)
@@ -43,14 +49,17 @@ namespace Infrastructure.Services
                 return ApiReturn<CheckLimitResponse>.Failure(result.Message, result);
             }
 
-            string process = device.PROCESS;
+            string process = device.DATAPROCESS;
 
             //Step 2：查詢站別對應的設備群（多台）
-            var eqNos = await repoDbo.QueryAsync<string>(
-                @"SELECT EQ_NO 
-                  FROM THWIP.TBLWIPOPDATA_EQ@THWIP 
-                  WHERE OPNO = :Opno AND ISENABLE = 1",
-                new { request.Opno });
+            //var eqNos = await repoDbo.QueryAsync<string>(
+            //    @"SELECT EQ_NO 
+            //      FROM THWIP.TBLWIPOPDATA_EQ@THWIP 
+            //      WHERE OPNO = :Opno AND ISENABLE = 1",
+            //    new { request.Opno });
+
+            var (steps, deviceIds) = await OpnoQueryModelHelper.ResolveQueryModeAsync(
+                repoCsCim, request.Opno, request.DeviceId);
 
             //這邊一定會有值，因為MES先判斷有值才會呼叫
             //if (!eqNos.Any())
@@ -64,13 +73,24 @@ namespace Infrastructure.Services
             //Step 3：查 7 天內該 LOT 生產紀錄
 
             string wipTable = $"TBLMESWIPDATA_{process}";
+            //var rawData = await repoDbo.QueryAsync<dynamic>(
+            //    $@"
+            //    SELECT * FROM {wipTable}
+            //    WHERE TRIM(LOTNO) = :Lotno 
+            //      AND TRIM(STEP) = :Step 
+            //      AND CSTYPE = 'PD'
+            //      AND TRIM(DEVICEID) IN ({string.Join(",", eqNos.Select(e => $"'{e}'"))})
+            //      AND TRIM(DEVICEID) NOT IN ('IS-012')
+            //      AND RecordDate > SYSDATE - 7",
+            //    new { Lotno = request.Lotno, Step = request.Opno });
+
             var rawData = await repoDbo.QueryAsync<dynamic>(
                 $@"
                 SELECT * FROM {wipTable}
                 WHERE TRIM(LOTNO) = :Lotno 
-                  AND TRIM(STEP) = :Step 
+                  AND TRIM(STEP) = :Step    
                   AND CSTYPE = 'PD'
-                  AND TRIM(DEVICEID) IN ({string.Join(",", eqNos.Select(e => $"'{e}'"))})
+                  AND TRIM(DEVICEID) IN ({string.Join(",", deviceIds.Select(d => $"'{d}'"))})
                   AND TRIM(DEVICEID) NOT IN ('IS-012')
                   AND RecordDate > SYSDATE - 7",
                 new { Lotno = request.Lotno, Step = request.Opno });
@@ -84,45 +104,61 @@ namespace Infrastructure.Services
 
 
             //Step 4：查上下限設定（先撈站別設定，再撈 group = 1）
-            var limits = await repoDbo.QueryAsync<dynamic>(
-                @"
-                SELECT DT.DEVICEID, DT.EQ_PARAMNAME, DT.EQ_PARAM, 
-                       DT.EQ_SPECRANGE_MIN, DT.EQ_SPECRANGE_MAX
-                FROM THWIP.TBLMESMACHINE_PARAM_OPTDT@THWIP DT
-                JOIN (
-                    SELECT DISTINCT DEVICEID, OPNO_GROUP, OPNO
-                    FROM DBO.TBLMESDEVICELIST_OPNO
-                ) OL 
-                  ON DT.DEVICEID = OL.DEVICEID AND DT.EQ_GROUP = OL.OPNO_GROUP
-                WHERE OL.OPNO = :Opno
-                  AND DT.DEVICEID = :DeviceId
-                  AND DT.EQ_PARAM NOT IN ('PARTNO','LOTNO','TILEID','STEP')
-                  AND DT.EQ_SPECVAL IS NOT NULL
-                  AND NVL(DT.EQ_RUNCHECK,0) = 1
-                ",
+            //var limits = await repoDbo.QueryAsync<dynamic>(
+            //    @"
+            //    SELECT DT.DEVICEID, DT.EQ_PARAMNAME, DT.EQ_PARAM, 
+            //           DT.EQ_SPECRANGE_MIN, DT.EQ_SPECRANGE_MAX
+            //    FROM THWIP.TBLMESMACHINE_PARAM_OPTDT@THWIP DT
+            //    JOIN (
+            //        SELECT DISTINCT DEVICEID, OPNO_GROUP, OPNO
+            //        FROM DBO.TBLMESDEVICELIST_OPNO
+            //    ) OL 
+            //      ON DT.DEVICEID = OL.DEVICEID AND DT.EQ_GROUP = OL.OPNO_GROUP
+            //    WHERE OL.OPNO = :Opno
+            //      AND DT.DEVICEID = :DeviceId
+            //      AND DT.EQ_PARAM NOT IN ('PARTNO','LOTNO','TILEID','STEP')
+            //      AND DT.EQ_SPECVAL IS NOT NULL
+            //      AND NVL(DT.EQ_RUNCHECK,0) = 1
+            //    ",
+            //    new { Opno = request.Opno, DeviceId = request.DeviceId });
+
+            //    if (!limits.Any())
+            //    {
+            //        // Fallback：查 EQ_GROUP = 1 的設定
+            //        limits = await repoDbo.QueryAsync<dynamic>(
+            //            @"
+            //            SELECT DT.DEVICEID, DT.EQ_PARAMNAME, DT.EQ_PARAM, 
+            //                   DT.EQ_SPECRANGE_MIN, DT.EQ_SPECRANGE_MAX
+            //            FROM THWIP.TBLMESMACHINE_PARAM_OPTDT@THWIP DT
+            //            JOIN (
+            //                SELECT DISTINCT DEVICEID, OPNO_GROUP, OPNO
+            //                FROM DBO.TBLMESDEVICELIST_OPNO
+            //            ) OL 
+            //              ON DT.DEVICEID = OL.DEVICEID AND DT.EQ_GROUP = OL.OPNO_GROUP
+            //            WHERE DT.DEVICEID = :DeviceId
+            //              AND DT.EQ_GROUP = 1
+            //              AND DT.EQ_PARAM NOT IN ('PARTNO','LOTNO','TILEID','STEP')
+            //              AND DT.EQ_SPECVAL IS NOT NULL
+            //              AND NVL(DT.EQ_RUNCHECK,0) = 1
+            //            ",
+            //            new { DeviceId = request.DeviceId });
+            //    }
+
+            var specBasis = await repoCsCim.QueryFirstOrDefaultAsync<dynamic>(@"
+                SELECT SPECNO
+                FROM ARGOSCADADEVICESPECBASIS
+                WHERE OPNO = :Opno AND DEVICENO = :DeviceId AND ENABLE = 'Y'",
                 new { Opno = request.Opno, DeviceId = request.DeviceId });
 
-                if (!limits.Any())
-                {
-                    // Fallback：查 EQ_GROUP = 1 的設定
-                    limits = await repoDbo.QueryAsync<dynamic>(
-                        @"
-                        SELECT DT.DEVICEID, DT.EQ_PARAMNAME, DT.EQ_PARAM, 
-                               DT.EQ_SPECRANGE_MIN, DT.EQ_SPECRANGE_MAX
-                        FROM THWIP.TBLMESMACHINE_PARAM_OPTDT@THWIP DT
-                        JOIN (
-                            SELECT DISTINCT DEVICEID, OPNO_GROUP, OPNO
-                            FROM DBO.TBLMESDEVICELIST_OPNO
-                        ) OL 
-                          ON DT.DEVICEID = OL.DEVICEID AND DT.EQ_GROUP = OL.OPNO_GROUP
-                        WHERE DT.DEVICEID = :DeviceId
-                          AND DT.EQ_GROUP = 1
-                          AND DT.EQ_PARAM NOT IN ('PARTNO','LOTNO','TILEID','STEP')
-                          AND DT.EQ_SPECVAL IS NOT NULL
-                          AND NVL(DT.EQ_RUNCHECK,0) = 1
-                        ",
-                        new { DeviceId = request.DeviceId });
-                }
+            if (specBasis == null)
+                return ApiReturn<CheckLimitResponse>.Failure("MESPD004,查無對應的上下限設定");
+
+            string specNo = specBasis.SPECNO;
+
+            var limits = await repoCsCim.QueryAsync<dynamic>(@"
+                SELECT PARAM, PARAMNAME, SPECUPPERLIMIT, SPECLOWERLIMIT
+                FROM ARGOSCADADEVICESPECDETAIL
+                WHERE SPECNO = :SpecNo", new { SpecNo = specNo });
 
 
             // Step 5：執行逐欄位比對（動態欄位 + 判斷是否超規）
@@ -132,14 +168,14 @@ namespace Infrastructure.Services
 
                 foreach (var limit in limits)
                 {
-                    string col = limit.EQ_PARAM;
+                    string col = limit.PARAM;
                     if (!rowDict.ContainsKey(col)) continue;
 
                     double val = 0, min = 0, max = 0;
 
                     if (double.TryParse(Convert.ToString(rowDict[col]), out val) &&
-                        double.TryParse(Convert.ToString(limit.EQ_SPECRANGE_MIN), out min) &&
-                        double.TryParse(Convert.ToString(limit.EQ_SPECRANGE_MAX), out max))
+                        double.TryParse(Convert.ToString(limit.SPECLOWERLIMIT), out min) &&
+                        double.TryParse(Convert.ToString(limit.SPECUPPERLIMIT), out max))
                     {
                         if (val < min || val > max)
                         {
@@ -150,7 +186,7 @@ namespace Infrastructure.Services
                                 Lotno = Convert.ToString(rowDict["LOTNO"]),
                                 CreateDate = Convert.ToDateTime(rowDict["RECORDDATE"]).ToString("yyyy/MM/dd HH:mm:ss"),
                                 ColName = col,
-                                ColCname = limit.EQ_PARAMNAME,
+                                ColCname = limit.PARAMNAME,
                                 Value = val,
                                 Min = min,
                                 Max = max
