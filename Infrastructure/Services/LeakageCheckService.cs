@@ -36,14 +36,7 @@ namespace Infrastructure.Services
 			var (opnosToQuery, deviceIdsToQuery) = await OpnoQueryModelHelper.ResolveQueryModeAsync(repoCim, request.Opno, request.Deviceid);
 
 
-			// 新增：查詢規則表決定最大天數
-			var rules = (await repoCim.QueryAsync<RuleCheckDefinition>(
-				@"SELECT DAYSRANGE ,DIFF
-				  FROM ARGOAPILEAKAGERULECHECK 
-				  WHERE OPNO IN :opnos",
-				new { opnos = opnosToQuery })).ToList();
-			var maxDays = rules.Max(r => r.DaysRange ?? 90);
-			var maxDiff = rules.Max(r => r.Diff ?? 30);
+			var (daysRange, diff) = await GetLeakageCheckParametersAsync(repoCim, request.Opno);
 
 
 			var process = await DeviceProcessHelper.GetProcessByDeviceIdAsync(repoDbo, request.Deviceid);
@@ -95,13 +88,13 @@ namespace Infrastructure.Services
 				lotno = request.Lotno,
 				steps = opnosToQuery,
 				deviceids = deviceIdsToQuery,
-				daysRange = maxDays,
-				diff = maxDiff
+				daysRange = daysRange,
+				diff = diff
 			}))?.ToList();
 
 			if (records != null && records.Any())
 			{
-				string msg = $"TILEID 數 {records.Count}，存在 NG/OK 差異超過 {maxDiff}";
+				string msg = $"TILEID 數 {records.Count}，存在 NG/OK 差異超過 {diff}";
 				_logger.LogWarning("[LeakageCheck] Fail - " + msg);
 				return ApiReturn<List<LeakageAnomalyDto>>.Failure(msg, records);
 			}
@@ -153,6 +146,38 @@ namespace Infrastructure.Services
 			}))?.ToList();
 
 			return ApiReturn<List<LeakageRawDataDto>>.Success("查詢成功", rows);
+		}
+
+		private async Task<(int daysRange, float diff)> GetLeakageCheckParametersAsync(IRepository repoCim, string opno)
+		{
+			// 查詢 OPNOGROUP
+			var groupAttr = await repoCim.QueryFirstOrDefaultAsync<dynamic>(
+				"SELECT VALUE FROM ARGOCIMOPNOATTRIBUTE WHERE OPNO = :opno AND ITEM = 'OPNOGROUP'",
+				new { opno });
+
+			if (groupAttr == null || string.IsNullOrEmpty(groupAttr.VALUE?.ToString()))
+				throw new Exception($"站點 {opno} 查無 OPNOGROUP 資料");
+
+			string opnoGroup = groupAttr.VALUE.ToString();
+
+			// 查詢 DAYSRANGE
+			var dayAttr = await repoCim.QueryFirstOrDefaultAsync<dynamic>(
+				"SELECT VALUE FROM ARGOCIMOPNOGROUPPARAMETER WHERE OPNOGROUP = :opnoGroup AND ITEM = 'DAYSRANGE'",
+				new { opnoGroup });
+
+			int d;
+			int daysRange = int.TryParse(dayAttr?.VALUE?.ToString(), out d) ? d : 30;
+
+
+			// 查詢 DIFF
+			var diffAttr = await repoCim.QueryFirstOrDefaultAsync<dynamic>(
+				"SELECT VALUE FROM ARGOCIMOPNOGROUPPARAMETER WHERE OPNOGROUP = :opnoGroup AND ITEM = 'DIFF'",
+				new { opnoGroup });
+
+			float f;
+			float diff = float.TryParse(diffAttr?.VALUE?.ToString(), out f) ? f : 0.05f;
+
+			return (daysRange, diff);
 		}
 	}
 }

@@ -54,6 +54,7 @@ namespace CimAPI.Controllers
 		/// <remarks>
 		/// RECORDATE、DEVICEID、DATAINDEX、STATUS、ALARMCODE不能空值
 		/// </remarks>
+		[ApiExplorerSettings(IgnoreApi = true)]
 		[Route("[controller]/InsertWipData")]
 		[HttpPost]
 		public async Task<IActionResult> InsertWipData(
@@ -233,8 +234,7 @@ namespace CimAPI.Controllers
         ///  "action":"SELECT",
         ///  "lotno": "WB2025200242-A00072",
         ///  "opno": "BTS00001",
-        ///  "deviceid": "LK-007",
-        ///  "diff": 0.0001
+        ///  "deviceid": "LK-007"
         /// }
         /// </para>
         /// </remarks>
