@@ -224,22 +224,22 @@ namespace CimAPI.Controllers
         }
 
 
-        /// <summary>
-        /// 填洞測漏檢查 API
-        /// </summary>
-        /// <remarks>
-        /// <para>
-        /// {
-        ///  "environment": "Production",
-        ///  "action":"SELECT",
-        ///  "lotno": "WB2025200242-A00072",
-        ///  "opno": "BTS00001",
-        ///  "deviceid": "LK-007"
-        /// }
-        /// </para>
-        /// </remarks>
+		/// <summary>
+		/// 填洞測漏檢查 API
+		/// </summary>
+		/// <remarks>
+		/// <para>
+		/// {
+		///  "environment": "Production",
+		///  "action":"SELECT",
+		///  "lotno": "WB2025500036-A00010",
+		///  "opno": "BTS00001",
+		///  "deviceid": "LK-007"
+		/// }
+		/// </para>
+		/// </remarks>
 
-        [Route("[controller]/LeakageCheck")]
+		[Route("[controller]/LeakageCheck")]
 		[HttpPost]
 		public async Task<IActionResult> LeakageCheck([FromBody] LeakageCheckRequest request)
 		{
