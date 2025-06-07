@@ -1,0 +1,61 @@
+[
+  {
+    "id": "DS654321",
+    "name": "Use of Process.Start",
+    "description": "Detects usage of Process.Start which may lead to command execution vulnerabilities.",
+    "severity": "Moderate",
+    "tags": [
+      "security",
+      "execution"
+    ],
+    "patterns": [
+      {
+        "pattern": "Process\\.Start\\(",
+        "type": "regex"
+      }
+    ],
+    "languages": [
+      "csharp"
+    ]
+  },
+  {
+    "id": "DS777777",
+    "name": "Use of exec is dangerous",
+    "description": "Detects usage of exec() which is commonly abused for arbitrary code execution.",
+    "severity": "Critical",
+    "tags": [
+      "security",
+      "execution"
+    ],
+    "patterns": [
+      {
+        "pattern": "exec\\(",
+        "type": "regex"
+      }
+    ],
+    "languages": [
+      "csharp",
+      "python"
+    ]
+  },
+  {
+    "id": "DS888888",
+    "name": "Possible SQL Injection",
+    "description": "Detects interpolated SQL queries which may be vulnerable to SQL injection.",
+    "severity": "Critical",
+    "tags": [
+      "security",
+      "injection",
+      "sql"
+    ],
+    "patterns": [
+      {
+        "pattern": "\\$\\\"SELECT .*\\{.*\\}.*\\\"",
+        "type": "regex"
+      }
+    ],
+    "languages": [
+      "csharp"
+    ]
+  }
+]

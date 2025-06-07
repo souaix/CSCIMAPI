@@ -44,12 +44,14 @@ namespace Core.Utilities
         /// </summary>
         private static string MapCustomCode(string key, Dictionary<string, string> configMapping)
         {
-            if (configMapping != null && configMapping.TryGetValue(key, out string mappedValue))
-            {
-                return mappedValue; // 找到對應轉換碼
-            }
+            //if (configMapping != null && configMapping.TryGetValue(key, out string mappedValue))
+            //{
+            //    return mappedValue; // 找到對應轉換碼
+            //}
 
-            throw new Exception("日期轉換失敗，請通知工程師檢查設定檔");
+            //throw new Exception("日期轉換失敗，請通知工程師檢查設定檔");
+
+            return configMapping.TryGetValue(key, out var value) ? value : key; // fallback to key
         }
     }
 }

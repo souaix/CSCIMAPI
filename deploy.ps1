@@ -1,7 +1,7 @@
 # deploy.ps1 with logging to deploy.log
 
 $logFile = "deploy.log"
-Log ("Running as user: " + [System.Security.Principal.WindowsIdentity]::GetCurrent().Name)
+
 
 function Log($msg) {
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
@@ -9,6 +9,33 @@ function Log($msg) {
     Write-Host $line
     Add-Content -Path $logFile -Value $line
 }
+
+Log ("Running as user: " + [System.Security.Principal.WindowsIdentity]::GetCurrent().Name)
+
+#scan by DevKim
+
+Write-Host "Checking DevSkim security scan result..."
+
+$scanFile = "scan_result.sarif"
+
+if (Test-Path $scanFile) {
+    $scanContent = Get-Content $scanFile -Raw
+    if ($scanContent -like '*"severity": "high"*') {
+        Write-Host "High severity security issues found. Deployment aborted."
+        $msg = "High severity security issues found. Deployment aborted."
+        Log $msg
+        exit 1
+    } else {
+        Write-Host "No high severity issues found. Proceeding with deployment..."
+    	Log "No high severity issues found. Proceeding with deployment..."
+    }
+} else {
+    Write-Host "Scan result file not found. Proceeding with deployment."
+    Log "Scan result file not found. Proceeding with deployment."
+
+}
+
+
 
 $branch = $env:CI_COMMIT_BRANCH.ToLower()
 Log "Current branch: $branch"
@@ -48,6 +75,8 @@ if (Test-Path ".\publish\app_offline.htm") {
 
 Log "Stopping IIS site..."
 Stop-Website -Name $siteName
+Start-Sleep -Seconds 3
+
 
 # ✅ 加入 IIS APPPOOL\<siteName> 權限
 try {
@@ -62,8 +91,9 @@ try {
     Log $_.Exception.Message
 }
 
-Log "Copying published files to target path..."
-Copy-Item -Path ".\publish\*" -Destination "$targetPath" -Recurse -Force -Verbose | ForEach-Object { Log $_ }
+Log "Robocopy deploying files..."
+$robocopyResult = robocopy ".\publish" "$targetPath" /MIR /Z /NP /R:3 /W:5 /LOG+:$logFile
+Log "Robocopy result code: $robocopyResult"
 
 Log "Starting IIS site..."
 Start-Website -Name $siteName
@@ -94,8 +124,14 @@ User: $env:GITLAB_USER_NAME
 Pipeline: $env:CI_PIPELINE_URL
 "@
 
-    Send-MailMessage -From $from -To $to -Subject $subject -Body $body -SmtpServer $smtpServer
-    Log "Email sent successfully."
+    $attachment = "scan_report.html"
+    if (Test-Path $attachment) {
+        Send-MailMessage -From $from -To $to -Subject $subject -Body $body -SmtpServer $smtpServer -Attachments $attachment
+        Log "Email sent with scan_report.html attached."
+    } else {
+        Send-MailMessage -From $from -To $to -Subject $subject -Body $body -SmtpServer $smtpServer
+        Log "Email sent (no scan report found to attach)."
+    }
 } catch {
     Log "Email failed to send."
     Log $_.Exception.Message

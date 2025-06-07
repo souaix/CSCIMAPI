@@ -6,9 +6,10 @@ namespace Core.Utilities
     {
         private readonly string _availableChars; // 可用的編碼字元 (如 ABCDEFGHIJKLMNOPQRSTUVWXYZ)
 
-        public NewSNGenerator(string availableChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
+        public NewSNGenerator(string availableChars)
         {
-            _availableChars = availableChars;
+            //_availableChars = availableChars;
+            _availableChars = string.IsNullOrEmpty(availableChars) ? "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789" : availableChars;
         }
 
         /// <summary>
@@ -19,11 +20,11 @@ namespace Core.Utilities
         /// <param name="pattern">NewSnPattern 定義的編碼模式</param>
         /// <param name="increment">是否遞增</param>
         /// <returns>新產生的 SN</returns>
-        public  string GenerateSN(string lastSN, string pattern, bool increment)
+        public  string GenerateSN(string lastSN, string pattern, bool increment, int snLength)
         {
             // 8.1 若 NewSnPattern 為 null 或空值，則呼叫 NormalNewSN
             if (string.IsNullOrEmpty(pattern))
-                return NormalNewSN(lastSN, increment);
+                return NormalNewSN(lastSN, increment, snLength);
 
             // 8.2 若 NewSnPattern 為 A00，則呼叫 A00NewSN
             if (pattern == "A00")
@@ -38,7 +39,7 @@ namespace Core.Utilities
                 return A000NewSN(lastSN, increment);
 
             // 預設使用 NormalNewSN
-            return NormalNewSN(lastSN, increment);
+            return NormalNewSN(lastSN, increment, snLength);
         }
 
         /// <summary>
@@ -51,10 +52,15 @@ namespace Core.Utilities
         /// <param name="lastSN">上一個 SN</param>
         /// <param name="increment">是否遞增</param>
         /// <returns>新的 SN</returns>
-        private string NormalNewSN(string lastSN, bool increment)
+        private string NormalNewSN(string lastSN, bool increment, int snLength)
         {
             // 9.6 若傳入值為 SN / GSC，則編碼不遞增，不更新 LastSN
             if (!increment) return lastSN;
+            
+            if (string.IsNullOrEmpty(lastSN))
+            {
+                lastSN = _availableChars[0].ToString().PadLeft(snLength, _availableChars[0]);
+            }
 
             char[] snArray = lastSN.ToCharArray();
             int index = snArray.Length - 1; // 取得 SN 的最後一碼索引
@@ -121,62 +127,109 @@ namespace Core.Utilities
         /// <param name="lastSN">上一個 SN</param>
         /// <param name="increment">是否遞增</param>
         /// <returns>新的 SN</returns>
+        /// 
         private string A00NewSN(string lastSN, bool increment)
         {
-            char firstChar = lastSN[0];  // 第一碼 (字母)
-            char secondChar = lastSN[1]; // 第二碼 (字母或數字)
-            int number = int.Parse(lastSN.Substring(2)); // 第三碼 (數字)
+            const string codeRule1 = "ABCDEFGHJKMNPRSTUVWY";  // 第一碼可用字元
+            const string codeRule2 = "0123456789ABCDEFGHJKMNPRSTUVWY"; // 第二碼可用字元
+            const string codeRule3 = "0123456789";  // 第三碼僅限數字
 
-            // 10.3 若為 SN / GSC，則不遞增，不更新 LastSN
+            // 若為 SN / GSC，不遞增，直接回傳
             if (!increment) return lastSN;
 
-            // 10.4 若為 SN1 / GSC1，則遞增號碼 +1，並更新 LastSN
-            number++;
+            // 若為 null 或空，則從 A00 開始
+            if (string.IsNullOrEmpty(lastSN)) return "A00";
 
-            if (char.IsDigit(secondChar)) // 10.5 若第二碼為數字
+            char[] snArray = lastSN.ToCharArray();
+
+            int index1 = codeRule1.IndexOf(snArray[0]); // 第一碼位置
+            int index2 = codeRule2.IndexOf(snArray[1]); // 第二碼位置
+            int index3 = codeRule3.IndexOf(snArray[2]); // 第三碼位置（必定為數字）
+
+            index3++;
+
+            if (index3 >= codeRule3.Length)
             {
-                if (number > 9) // 進位
+                index3 = 0;
+                index2++;
+
+                if (index2 >= codeRule2.Length)
                 {
-                    number = 0;
-                    int index = _availableChars.IndexOf(firstChar);
-                    if (index < _availableChars.Length - 1) // 第一碼進位
-                    {
-                        firstChar = _availableChars[index + 1];
-                    }
-                    else
-                    {
-                        throw new Exception("SN 超過最大範圍");
-                    }
-                }
-            }
-            else // 10.6 若第二碼為字母
-            {
-                if (number > 9) // 當第三碼 9 進位時，第二碼遞增
-                {
-                    number = 0;
-                    int index = _availableChars.IndexOf(secondChar);
-                    if (index < _availableChars.Length - 1)
-                    {
-                        secondChar = _availableChars[index + 1];
-                    }
-                    else
-                    {
-                        secondChar = _availableChars[0]; // 第二碼歸零
-                        int firstIndex = _availableChars.IndexOf(firstChar);
-                        if (firstIndex < _availableChars.Length - 1)
-                        {
-                            firstChar = _availableChars[firstIndex + 1]; // 第一碼進位
-                        }
-                        else
-                        {
-                            throw new Exception("SN 超過最大範圍");
-                        }
-                    }
+                    index2 = 0;
+                    index1++;
+
+                    if (index1 >= codeRule1.Length)
+                        throw new Exception("SN 超過最大編碼範圍");
                 }
             }
 
-            return $"{firstChar}{secondChar}{number}";
+            char firstChar = codeRule1[index1];
+            char secondChar = codeRule2[index2];
+            char thirdChar = codeRule3[index3];
+
+            return $"{firstChar}{secondChar}{thirdChar}";
         }
+
+        //private string A00NewSN(string lastSN, bool increment)
+        //{
+        //    if (string.IsNullOrEmpty(lastSN)) return "A00";
+        //    char firstChar = lastSN[0];  // 第一碼 (字母)
+        //    char secondChar = lastSN[1]; // 第二碼 (字母或數字)
+        //    int number = int.Parse(lastSN.Substring(2)); // 第三碼 (數字)
+
+        //    // 10.3 若為 SN / GSC，則不遞增，不更新 LastSN
+        //    if (!increment) return lastSN;
+
+        //    // 10.4 若為 SN1 / GSC1，則遞增號碼 +1，並更新 LastSN
+        //    number++;
+
+        //    if (char.IsDigit(secondChar)) // 10.5 若第二碼為數字
+        //    {
+        //        if (number > 9) // 進位
+        //        {
+        //            number = 0;
+        //            int index = _availableChars.IndexOf(firstChar);
+        //            if (index < _availableChars.Length - 1) // 第一碼進位
+        //            {
+        //                firstChar = _availableChars[index + 1];
+        //            }
+        //            else
+        //            {
+        //                throw new Exception("SN 超過最大範圍");
+        //            }
+        //        }
+        //    }
+        //    else // 10.6 若第二碼為字母
+        //    {
+        //        if (number > 9) // 當第三碼 9 進位時，第二碼遞增
+        //        {
+        //            number = 0;
+        //            int index = _availableChars.IndexOf(secondChar);
+        //            if (index < _availableChars.Length - 1)
+        //            {
+        //                secondChar = _availableChars[index + 1];
+        //            }
+        //            else
+        //            {
+        //                secondChar = _availableChars[0]; // 第二碼歸零
+        //                int firstIndex = _availableChars.IndexOf(firstChar);
+        //                if (firstIndex < _availableChars.Length - 1)
+        //                {
+        //                    firstChar = _availableChars[firstIndex + 1]; // 第一碼進位
+        //                }
+        //                else
+        //                {
+        //                    throw new Exception("SN 超過最大範圍");
+        //                }
+        //            }
+        //        }
+        //    }
+
+        //    return $"{firstChar}{secondChar}{number}";
+        //}
+
+
+
         /// <summary>
         /// 11. AA00 編碼函數
         /// 以 AA-01 開始，最後兩碼為數字，當數字達 98 進位時，前兩碼遞增
@@ -186,6 +239,7 @@ namespace Core.Utilities
         /// <returns>新的 SN</returns>
         private string AA00NewSN(string lastSN, bool increment)
         {
+            if (string.IsNullOrEmpty(lastSN)) return "AA-00";
             char firstChar = lastSN[0];  // 第一碼 (字母)
             char secondChar = lastSN[1]; // 第二碼 (字母)
             int number = int.Parse(lastSN.Substring(3)); // 最後兩碼數字 (忽略固定的 "-")
@@ -230,6 +284,9 @@ namespace Core.Utilities
         /// <returns>新的 SN</returns>
         private string A000NewSN(string lastSN, bool increment)
         {
+
+            if (string.IsNullOrEmpty(lastSN)) return "A000";
+
             char firstChar = lastSN[0];  // 第一碼 (字母)
             int number = int.Parse(lastSN.Substring(1)); // 後三碼數字
 

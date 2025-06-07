@@ -2,6 +2,7 @@
 using System.Data.OracleClient;
 using Dapper;
 using Core.Interfaces;
+using MySql.Data.MySqlClient;
 
 namespace Infrastructure.Data.Repositories;
 public class OracleRepository : IRepository
@@ -16,6 +17,14 @@ public class OracleRepository : IRepository
 	private IDbConnection CreateConnection()
 	{
 		return new OracleConnection(_connectionString);
+	}
+
+	// [New] 20250520 Julie: 支援使用跨表交易控制
+	public IDbConnection CreateOpenConnection()
+	{
+		var conn = new OracleConnection(_connectionString);
+		conn.Open();
+		return conn;
 	}
 
 	public async Task<IEnumerable<T>> QueryAsync<T>(string sql, object? parameters = null)

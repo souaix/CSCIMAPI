@@ -11,5 +11,7 @@ public class CustomerConfig
 	public string? CharacterExclude { get; set; }
 	public string? SelectLastSn { get; set; }
 	public string? NewSnPattern { get; set; }
-	
+
+    public string? LastSnWhereEvalFormula { get; set; }
+
 }
